@@ -1,9 +1,9 @@
-import { Replay } from './Replay';
-import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent } from '../types';
+import { Replay } from '../Replay';
+import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent } from '../../types';
 import * as linq from 'linq';
 import * as sha1 from 'sha1';
-import { IReplayDetailsPlayer } from '../types';
-import { ReplayAnalyserContext, RunOnWorker } from './decorators';
+import { IReplayDetailsPlayer } from '../../types';
+import { ReplayAnalyserContext, RunOnWorker } from '../decorators';
 // tslint:disable:no-bitwise
 
 export interface IMapDescriptor {

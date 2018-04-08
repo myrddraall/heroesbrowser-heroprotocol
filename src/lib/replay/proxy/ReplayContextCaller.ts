@@ -6,7 +6,7 @@ import {
     IReplayStatusMessage, isReplayStatusMessage,
     ILoadProtocolMessage, isLoadProtocolMessage, ILoadProtocolResultMessage
 } from './messages';
-import { HeroProtocol } from '../../';
+import { HeroProtocol } from '../../heroprotocol';
 import { Subject } from 'rxjs/Subject';
 import { Subscription } from 'rxjs/Subscription';
 import { Observable } from 'rxjs/Observable';
@@ -33,7 +33,7 @@ export class ReplayContextCaller implements IWorkerContextHost {
     }
 
     public constructor(mpqData?: ArrayBuffer) {
-        this._workerContext = new WorkerContext(`./assets/worker/worker${HeroProtocol.env === 'production' ? '.min' : ''}.js`, mpqData, [mpqData]);
+        this._workerContext = new WorkerContext(`./assets/webworker/replay-worker${HeroProtocol.env === 'production' ? '.min' : ''}.js`, mpqData, [mpqData]);
         this._workerContext.addCallContext(this);
         this._statusSubjectSubscription = this._workerContext.channelMessages.pipe(
             filter(msg => isReplayStatusMessage(msg))).subscribe(((statusMessage: IReplayStatusMessage) => {

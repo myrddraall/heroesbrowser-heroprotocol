@@ -1,24 +1,26 @@
 {
     "name": "@heroesbrowser/heroprotocol",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "description": "Parses and analizes StormReplay Files in the browser",
     "main": "./dist/lib/index.js",
     "typings": "./dist/lib/index.d.ts",
     "scripts": {
         "clear-lib": "rimraf dist",
         "build": "gulp build && webpack",
-        "build-prod": "gulp build --prod && webpack -p",
-        "prepublish": "npm run clear-lib && gulp build"
+        "start": "concurrently \"gulp watch\" \"webpack --watch\"",
+        "prepublish": "npm run clear-lib && npm run build"
     },
     "author": {
         "name": "Myrddraall"
     },
     "license": "ISC",
     "devDependencies": {
-        "awesome-typescript-loader": "^4.0.1",
+        "awesome-typescript-loader": "^5.0.0",
+        "concurrently": "^3.5.1",
         "gulp": "^3.9.1",
         "gulp-sourcemaps": "^2.6.4",
         "gulp-typescript": "^4.0.2",
+        "merge2": "^1.2.1",
         "rimraf": "^2.6.2",
         "rollup": "^0.57.1",
         "source-map-loader": "^0.2.3",

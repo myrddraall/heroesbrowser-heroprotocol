@@ -2,7 +2,7 @@ import { IHeroProtocol } from './types';
 import { PythonProtocolConverter } from './protocols/PythonProtocolConverter';
 
 export class HeroProtocol {
-    public static env = 'production';
+    public static env = 'development';
     private static _protocols: Map<number, IHeroProtocol> = new Map<number, IHeroProtocol>();
     private static _protocolCode: Map<number, string> = new Map<number, string>();
 

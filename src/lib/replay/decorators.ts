@@ -34,10 +34,32 @@ export function WorkerContextCaller(guid: string, proxyType: Type<IWorkerContext
             WorkerContextRegistry.registerContextCaller(<any>target);
             return;
         }
-        const original = target;
+        const original: any = target;
         const f: any = function (...args) {
+
             const self = new proxyType(...args);
-            addProtoIfRequired(self, original.prototype);
+            Object.getOwnPropertyNames(original.prototype).forEach(name => {
+                const sdesc = Object.getOwnPropertyDescriptor(self, name);
+                if(name !== 'constructor' && !sdesc){
+                    const desc = Object.getOwnPropertyDescriptor(original.prototype, name);
+                    Object.defineProperty(self, name, desc);
+                }
+            });
+            /*
+            const newType = class Proxy extends proxyType {
+                constructor(...args) {
+                    super(...args);
+                }
+            };
+            const selfType = Object.create(newType, original.prototype);
+            const self = new selfType(...args);
+           /* const self = new newType(...args);
+            Object.getOwnPropertyNames(original.prototype).forEach(name => {
+                newType.prototype[name] = original.prototype[name];
+            });*/
+            // const self = new proxyType(...args);
+
+            //addProtoIfRequired(self, original.prototype);
             /* const proto = findProtoBeforeObject(self);
              proto['__proto__'] = original.prototype;
              */
@@ -70,8 +92,9 @@ function wrapProxiedMethod<T>(methodId: number, cacheResult: boolean): () => Pro
 }
 
 function wrapProxiedGetter(propertyId: number, cacheResult: boolean): () => Promise<any> {
+    const pId = propertyId;
     const fn = function (this: IWorkerContextHost): Promise<any> {
-        return this.workerContext.getProperty(this, propertyId, cacheResult);
+        return this.workerContext.getProperty(this, pId, cacheResult);
     };
     return fn;
 }
@@ -119,15 +142,18 @@ function buildWorkerPoxyGetterProperty<T>(
     return desc;
 }
 
+let callAddress = -1;
+
+
 export function RunOnWorker<T>(): MethodDecorator {
     return <T>(target: Object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<T>): TypedPropertyDescriptor<T> | void => {
         let proxyMap = Reflect.getOwnMetadata('woker:proxyMethods', target.constructor);
         if (!proxyMap) {
-            proxyMap = [];
+            proxyMap = {};
             Reflect.defineMetadata('woker:proxyMethods', proxyMap, target.constructor);
         }
-        const mCount = proxyMap.length;
-        proxyMap.push(propertyKey);
+        const mCount = ++callAddress;
+        proxyMap[mCount] = propertyKey;
         // Reflect.defineMetadata('woker:methodCount', mCount, target.constructor);
         //Reflect.defineMetadata('woker:methodNum', mCount, target.constructor, propertyKey);
 
