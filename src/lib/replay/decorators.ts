@@ -40,29 +40,20 @@ export function WorkerContextCaller(guid: string, proxyType: Type<IWorkerContext
             const self = new proxyType(...args);
             Object.getOwnPropertyNames(original.prototype).forEach(name => {
                 const sdesc = Object.getOwnPropertyDescriptor(self, name);
-                if(name !== 'constructor' && !sdesc){
+                
+                let sFunc = false;
+                if(!sdesc){
+                    try{
+                        sFunc = typeof self[name] === 'function';
+                    }catch(e){
+                        sFunc = true;
+                    }
+                }
+                if(name !== 'constructor' && !sdesc && !sFunc){
                     const desc = Object.getOwnPropertyDescriptor(original.prototype, name);
                     Object.defineProperty(self, name, desc);
                 }
             });
-            /*
-            const newType = class Proxy extends proxyType {
-                constructor(...args) {
-                    super(...args);
-                }
-            };
-            const selfType = Object.create(newType, original.prototype);
-            const self = new selfType(...args);
-           /* const self = new newType(...args);
-            Object.getOwnPropertyNames(original.prototype).forEach(name => {
-                newType.prototype[name] = original.prototype[name];
-            });*/
-            // const self = new proxyType(...args);
-
-            //addProtoIfRequired(self, original.prototype);
-            /* const proto = findProtoBeforeObject(self);
-             proto['__proto__'] = original.prototype;
-             */
             Reflect.defineMetadata('workerContext:typeId', guid, self.constructor);
             WorkerContextRegistry.registerContextCaller(<Type<any>>self.constructor);
             return self;
@@ -80,10 +71,6 @@ export function ReplayAnalyserContext(guid: string): ClassDecorator {
     return WorkerContextCaller(guid, ReplayAnalyserContextCaller);
 }
 
-
-
-
-
 function wrapProxiedMethod<T>(methodId: number, cacheResult: boolean): () => Promise<any> {
     const fn = function (this: IWorkerContextHost, ...args: any[]) {
         return this.workerContext.callMethod(this, methodId, args, cacheResult);
@@ -98,8 +85,6 @@ function wrapProxiedGetter(propertyId: number, cacheResult: boolean): () => Prom
     };
     return fn;
 }
-
-
 
 function buildWorkerPoxyMethod<T>(
     target: Object,
@@ -134,9 +119,6 @@ function buildWorkerPoxyGetterProperty<T>(
         throw new Error(`Property "${propertyKey}" must return a promise.`);
     }*/
     const desc = <TypedPropertyDescriptor<T>>{
-
-        //enumerable: descriptor.enumerable,
-        // writable: descriptor.writable,
         get: <any>wrapProxiedGetter(methodNum, true)
     };
     return desc;
@@ -154,9 +136,6 @@ export function RunOnWorker<T>(): MethodDecorator {
         }
         const mCount = ++callAddress;
         proxyMap[mCount] = propertyKey;
-        // Reflect.defineMetadata('woker:methodCount', mCount, target.constructor);
-        //Reflect.defineMetadata('woker:methodNum', mCount, target.constructor, propertyKey);
-
         if (isRunningInWorker()) {
             return;
         }
@@ -168,20 +147,3 @@ export function RunOnWorker<T>(): MethodDecorator {
         }
     };
 }
-/*
-export function ReplayAnalizer(): ClassDecorator {
-    return (target) => {
-        if (typeof (importScripts) === 'function' && navigator.constructor.name === 'WorkerNavigator') {
-            return target;
-        }
-
-        const original = target;
-        const f: any = function (...args) {
-
-            //return original.apply(this, args);
-        };
-        f.prototype = original.prototype;
-        return f;
-    };
-}
-*/
