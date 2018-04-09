@@ -3,6 +3,7 @@ import { ReplayAnalyserContext, RunOnWorker } from '../decorators';
 import { Replay } from '../Replay';
 import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent } from '../../types';
 import * as linq from 'linq';
+import { BasicReplayAnalyser } from './BasicReplayAnalyser'
 
 export interface IPlayerScores {
     "Takedowns": number;
@@ -17,21 +18,73 @@ export interface IPlayerScores {
     "Awards": string[];
 }
 
+export interface IScoreScreenData {
+    winningTeam: number;
+    team1Level: number;
+    team2Level: number;
+    team1Kills: number;
+    team2Kills: number;
+    playerScores: IPlayerScores[];
+}
+
 @ReplayAnalyserContext('0B9EBC25-CB1F-47CC-B287-D806D58E2C55')
 export class ScoreAnalyser {
-    public constructor(private replay: Replay) { }
+    private basicReplayAnalyser: BasicReplayAnalyser;
+
+    public constructor(private replay: Replay) { 
+        this.basicReplayAnalyser = new BasicReplayAnalyser(replay);
+    }
+       
 
     private get trackerQueriable(): Promise<linq.IEnumerable<IReplayTrackerEvent>> {
         return (async (): Promise<linq.IEnumerable<IReplayTrackerEvent>> => {
             const events = await this.replay.trackerEvents;
-            console.log(events);
             return linq.from(events);
         })();
     }
 
+    @RunOnWorker()
+    public get scoreScreenData(): Promise<IScoreScreenData> {
+        return (async (): Promise<IScoreScreenData> => {
+            const playerScores = await this.playerScoresSimple;
+            const trackerQueriable = await this.trackerQueriable;
+            const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();
+            const takeDowns = linq.from(results.m_instanceList)
+                .where(l => l.m_name === 'TeamTakedowns')
+                .selectMany(l => l.m_values)
+                .where(td => {
+                    console.log('TeamTakedowns', td);
+                    return td[0] && td[0].m_value !== 0
+                })
+                .select(td => td[0].m_value)
+                .toArray();
+
+            const levels = linq.from(results.m_instanceList)
+                .where(l => l.m_name === 'Level')
+                .selectMany(_ => _.m_values)
+                .select((l, i) => ({
+                    i: i,
+                    l: l[0] ? l[0].m_value : undefined
+                }))
+                .where(r => r.i === 0 || r.i === 5)
+                .select(_ => _.l)
+                .toArray();
+
+            // TODO: check to make sure teams kills are always reversed
+            const scoreData: IScoreScreenData = {
+                winningTeam: await this.basicReplayAnalyser.winningTeam,
+                team1Kills: takeDowns[1],
+                team2Kills: takeDowns[0],
+                team1Level: levels[0],
+                team2Level: levels[1],
+                playerScores: playerScores
+            };
+            return scoreData;
+        })();
+    }
 
     @RunOnWorker()
-    public get scoreScreenData(): Promise<IPlayerScores[]> {
+    public get playerScoresSimple(): Promise<IPlayerScores[]> {
         return (async (): Promise<any> => {
             const trackerQueriable = await this.trackerQueriable;
             const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();

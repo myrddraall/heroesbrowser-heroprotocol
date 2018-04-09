@@ -43,6 +43,7 @@ export class ReplayWorker {
                             stack: (<Error>e).stack
                         }
                     };
+                    this.send(errMsg);
                 }
             } else if (isLoadProtocolResultMessage(event.data)) {
                 this.handleProtocolResult(event.data);
