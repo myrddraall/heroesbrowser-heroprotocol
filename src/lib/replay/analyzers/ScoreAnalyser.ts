@@ -4,7 +4,7 @@ import { Replay } from '../Replay';
 import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent } from '../../types';
 import * as linq from 'linq';
 import { BasicReplayAnalyser } from './BasicReplayAnalyser'
-
+import { ReplayToOldError } from "../errors"
 export interface IPlayerScores {
     "Takedowns": number;
     "Deaths": number;
@@ -31,21 +31,31 @@ export interface IScoreScreenData {
 export class ScoreAnalyser {
     private basicReplayAnalyser: BasicReplayAnalyser;
 
-    public constructor(private replay: Replay) { 
+    public constructor(private replay: Replay) {
         this.basicReplayAnalyser = new BasicReplayAnalyser(replay);
     }
-       
+
 
     private get trackerQueriable(): Promise<linq.IEnumerable<IReplayTrackerEvent>> {
         return (async (): Promise<linq.IEnumerable<IReplayTrackerEvent>> => {
             const events = await this.replay.trackerEvents;
+            console.log(events);
             return linq.from(events);
         })();
+    }
+
+
+    private async checkMinVersion(minVer: number, message?:string): Promise<void> {
+        const ver = await this.basicReplayAnalyser.version;
+        if (ver.protocol < minVer) {
+            throw new ReplayToOldError(message || "Replay to Old");
+        }
     }
 
     @RunOnWorker()
     public get scoreScreenData(): Promise<IScoreScreenData> {
         return (async (): Promise<IScoreScreenData> => {
+            await this.checkMinVersion(40336, 'Scorescreen Data not supported by this version of replay');
             const playerScores = await this.playerScoresSimple;
             const trackerQueriable = await this.trackerQueriable;
             const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();
@@ -86,6 +96,7 @@ export class ScoreAnalyser {
     @RunOnWorker()
     public get playerScoresSimple(): Promise<IPlayerScores[]> {
         return (async (): Promise<any> => {
+            await this.checkMinVersion(40336, 'Player score data not supported by this version of replay');
             const trackerQueriable = await this.trackerQueriable;
             const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();
             console.log('!!!!>>>', results)
