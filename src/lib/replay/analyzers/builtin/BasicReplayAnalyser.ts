@@ -1,12 +1,13 @@
 import { Replay } from '../../Replay';
-//import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent } from '../types';
 import * as linq from 'linq';
 import * as sha1 from 'sha1';
 import { IReplayDetailsPlayer } from '../../../types';
 import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
-// tslint:disable:no-bitwise
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
 import { GameType, IReplayVeriosn } from '../types';
+import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
+
+
 
 
 export interface ReplayDescription {
@@ -19,23 +20,23 @@ export interface ReplayDescription {
     timeZone: number;
     playedOn: Date;
     winningTeam: number;
-    players: BasicPlayerData[];
+    players: IPlayerSlot[];
 }
 
-export interface BasicPlayerData {
-    id: string;
-    name: string;
-    hero: string;
-    team: number;
-    won: boolean;
-    observer: boolean;
-}
 
 @ReplayAnalyserContext('1B90BC76-8CE8-495C-A978-ABFD78DBB72A')
 export class BasicReplayAnalyser extends AbstractReplayAnalyser {
-
+    private playerAnalyser: PlayerAnalyser;
+    
     public constructor(replay: Replay) {
         super(replay);
+        
+    }
+
+    public async initialize(): Promise<void> {
+        await super.initialize();
+        this.playerAnalyser = new PlayerAnalyser(this.replay);
+        await this.playerAnalyser.initialize();
     }
 
     @RunOnWorker()
@@ -100,8 +101,9 @@ export class BasicReplayAnalyser extends AbstractReplayAnalyser {
     }
 
     @RunOnWorker()
-    public get playerList(): Promise<BasicPlayerData[]> {
-        return (async (): Promise<BasicPlayerData[]> => {
+    public get playerList(): Promise<IPlayerSlot[]> {
+        return this.playerAnalyser.playerSlotData;
+        /*return (async (): Promise<IPlayerSlot[]> => {
             const init = await this.initData;
             const details = await this.details;
 
@@ -127,7 +129,7 @@ export class BasicReplayAnalyser extends AbstractReplayAnalyser {
 
             return playerList.toArray();
 
-        })();
+        })();*/
     }
 
     @RunOnWorker()

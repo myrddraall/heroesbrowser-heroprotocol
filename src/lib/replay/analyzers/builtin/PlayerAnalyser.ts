@@ -22,7 +22,7 @@ interface ISlotInfo {
     m_control: number; // 0?? 2: player
     m_hasSilencePenalty: boolean;
     m_hasVoiceSilencePenalty: boolean;
-    m_hero: string;
+    m_heroHandle: string;
     m_mount: string;
     m_observe: number;
     m_skin: string;
@@ -39,6 +39,8 @@ interface ISlotInfo {
     m_programId: string;
     m_realm: number;
     m_region: number;
+    m_result: number;
+    m_hero: string;
 }
 
 export interface IPlayerSlot {
@@ -48,10 +50,12 @@ export interface IPlayerSlot {
     region: number;
     handle: string;
     userId: number;
+    won: boolean;
     slot: number;
     name: string;
     team: number;
     hero: string;
+    heroHandle: string;
     skin: string;
     mount: string;
     spray: string;
@@ -64,11 +68,9 @@ export interface IPlayerSlot {
 
 @ReplayAnalyserContext('09E13E2D-581E-4929-AEDA-FE8DA3FF3ACF')
 export class PlayerAnalyser extends AbstractReplayAnalyser{
-    private basicReplayAnalyser: BasicReplayAnalyser;
 
     public constructor(replay: Replay) {
         super(replay);
-        this.basicReplayAnalyser = new BasicReplayAnalyser(replay);
     }
 
 
@@ -80,11 +82,11 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
             const gameEvents = await this.gameEvents;
             const trackerEvents = await this.trackerEvents;
             const attributeEvents = await this.attributeEvents;
-            console.log('initData', initData);
-            console.log('details', details);
-            console.log('gameEvents', gameEvents);
-            console.log('trackerEvents', trackerEvents);
-            console.log('attributeEvents', attributeEvents);
+           // console.log('initData', initData);
+           // console.log('details', details);
+           // console.log('gameEvents', gameEvents);
+            //console.log('trackerEvents', trackerEvents);
+          //  console.log('attributeEvents', attributeEvents);
 
             const slotInfo: Partial<ISlotInfo>[] = [];
 
@@ -106,7 +108,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                     m_control: slot.m_control,
                     m_hasSilencePenalty: slot.m_hasSilencePenalty,
                     m_hasVoiceSilencePenalty: slot.m_hasVoiceSilencePenalty,
-                    m_hero: slot.m_hero,
+                    m_heroHandle: slot.m_hero,
                     m_mount: slot.m_mount,
                     m_observe: slot.m_observe,
                     m_skin: slot.m_skin,
@@ -130,6 +132,8 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                 slot.m_programId = detail.m_toon.m_programId;
                 slot.m_realm = detail.m_toon.m_realm;
                 slot.m_region = detail.m_toon.m_region;
+                slot.m_result = detail.m_result;
+                slot.m_hero = detail.m_hero;
             }
 
             const slotList: IPlayerSlot[] = slotInfoQ
@@ -153,10 +157,12 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                         region: _.m_region,
                         handle: _.m_toonHandle,
                         userId: _.m_userId,
+                        won: _.m_result === 1,
                         slot: _.m_workingSetSlotId,
                         name: _.m_name,
                         team: slotType === SlotType.PLAYER || slotType === SlotType.AI ? _.m_teamId : -1,
                         hero: _.m_hero,
+                        heroHandle: _.m_heroHandle,
                         skin: _.m_skin,
                         mount: _.m_mount,
                         spray: _.m_spray,
