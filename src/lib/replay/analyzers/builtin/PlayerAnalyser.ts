@@ -118,7 +118,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                     m_userId: slot.m_userId,
                     m_voiceLine: slot.m_voiceLine,
                     m_workingSetSlotId: slot.m_workingSetSlotId,
-                    m_name: slot.m_userId ? userInit[slot.m_userId].m_name : null
+                    m_name: slot.m_userId !== null ? userInit[slot.m_userId].m_name : null
                 };
                 slotInfo.push(info);
             }
