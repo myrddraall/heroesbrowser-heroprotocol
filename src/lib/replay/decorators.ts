@@ -5,26 +5,41 @@ import { IWorkerContextHost } from './proxy/context/IWorkerContextHost';
 import { ReplayContextCaller } from './proxy/ReplayContextCaller';
 import { ReplayAnalyserContextCaller } from './proxy/ReplayAnalyserContextCaller';
 import { Type } from '../types';
+import { InvalidExecutionContextError } from './errors'
 
-function isRunningInWorker(): boolean {
+export function isRunningInWorker(): boolean {
     return typeof importScripts === 'function' && navigator.constructor.name === 'WorkerNavigator';
 }
+function getPropertyNames(type: Type<any>): Set<string> {
+    const props: Set<string> = new Set();
+    let proto = type.prototype;
+    while (proto && proto.constructor !== Object) {
+        Object.getOwnPropertyNames(proto).forEach(n => {
+            props.add(n);
+        });
+        proto = Object.getPrototypeOf(proto);
+    }
+    return props;
+}
 
-function addProtoIfRequired(obj: any, protoToAdd: any) {
-    let proto = obj['__proto__'];
-    while (proto) {
-        const nextProto = proto['__proto__'];
-        if (nextProto) {
-            if (nextProto === protoToAdd) {
-                return;
-            }
-            if (nextProto.constructor === Object) {
-                proto['__proto__'] = protoToAdd;
-                return;
+function buildProxyObject(callerType: Type<IWorkerContextHost>, proxiedType: Type<any>, ctorArgs: any[]): Object {
+    const callerInst = new callerType(...ctorArgs);
+    const callerProps = getPropertyNames(callerType);
+
+    let proto = proxiedType.prototype;
+    while (proto && proto.constructor !== Object) {
+        const props = Object.getOwnPropertyNames(proto);
+        for (let i = 0; i < props.length; i++) {
+            const prop = props[i];
+            if (!callerProps.has(prop)) {
+                const desc = Object.getOwnPropertyDescriptor(proto, prop);
+                Object.defineProperty(callerInst, prop, desc);
+                callerProps.add(prop);
             }
         }
-        proto = nextProto;
+        proto = Object.getPrototypeOf(proto);
     }
+    return callerInst;
 }
 
 export function WorkerContextCaller(guid: string, proxyType: Type<IWorkerContextHost>): ClassDecorator {
@@ -37,23 +52,23 @@ export function WorkerContextCaller(guid: string, proxyType: Type<IWorkerContext
         const original: any = target;
         const f: any = function (...args) {
 
-            const self = new proxyType(...args);
-            Object.getOwnPropertyNames(original.prototype).forEach(name => {
+            const self = buildProxyObject(proxyType, original, args);
+            /*Object.getOwnPropertyNames(original.prototype).forEach(name => {
                 const sdesc = Object.getOwnPropertyDescriptor(self, name);
-                
+
                 let sFunc = false;
-                if(!sdesc){
-                    try{
+                if (!sdesc) {
+                    try {
                         sFunc = typeof self[name] === 'function';
-                    }catch(e){
+                    } catch (e) {
                         sFunc = true;
                     }
                 }
-                if(name !== 'constructor' && !sdesc && !sFunc){
+                if (name !== 'constructor' && !sdesc && !sFunc) {
                     const desc = Object.getOwnPropertyDescriptor(original.prototype, name);
                     Object.defineProperty(self, name, desc);
                 }
-            });
+            });*/
             Reflect.defineMetadata('workerContext:typeId', guid, self.constructor);
             WorkerContextRegistry.registerContextCaller(<Type<any>>self.constructor);
             return self;
@@ -145,4 +160,32 @@ export function RunOnWorker<T>(): MethodDecorator {
             return buildWorkerPoxyGetterProperty(target, mCount, propertyKey, descriptor);
         }
     };
+}
+
+export function WorkerOnly(): MethodDecorator {
+    return <T>(target: Object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<T>): TypedPropertyDescriptor<T> | void => {
+        if (isRunningInWorker()) {
+            return;
+        }
+        if (descriptor.value) {
+            const desc: TypedPropertyDescriptor<T> = {
+                value: <any>((...args): any => {
+                    throw new InvalidExecutionContextError(`The Method "${propertyKey}" can only be called from the worker context.`);
+                })
+            }
+            return desc;
+        }else if (descriptor.get || descriptor.set) {
+            const desc: TypedPropertyDescriptor<T> = {};
+            const throwFn = <any>((...args): any => {
+                throw new InvalidExecutionContextError(`The Property "${propertyKey}" can only be accessed from the worker context.`);
+            });
+            if(descriptor.get){
+                desc.get = throwFn;
+            }
+            if(descriptor.set){
+                desc.set = throwFn;
+            }
+            return desc;
+        }
+    }
 }

@@ -1,1 +1,2 @@
-export * from './ReplayToOldError';
+export * from './ReplayVersionOutOfRangeError';
+export * from './InvalidExecutionContextError';

@@ -13,6 +13,7 @@ import { Subscription } from 'rxjs/Subscription';
 import { IReplayStatusMessage } from './proxy/messages';
 import { debounceTime } from 'rxjs/operators/debounceTime';
 import { timer } from 'rxjs/Observable/timer';
+import { IWorkerCallContext } from './proxy/context/IWorkerCallContext';
 
 function parseStrings<T>(data) {
     if (!data) {
@@ -51,7 +52,8 @@ const decoderMap = {
 };
 
 @ReplayWorkerContext('008DCF70-B7E4-42DF-A3F9-4D2ADE13E718')
-export class Replay {
+export class Replay implements IWorkerCallContext {
+
     private _mpq: MPQArchive;
     private _protocolPromise: Promise<IHeroProtocol>;
     private _protocol: IHeroProtocol;
@@ -73,6 +75,8 @@ export class Replay {
             return this.asPromise(this._protocol);
         });
     }
+
+    public async initialize(): Promise<void> { }
 
     @RunOnWorker()
     public get header(): Promise<IReplayHeader> {
@@ -114,6 +118,10 @@ export class Replay {
 
     public constructor(mpqData: ArrayBuffer) {
         this._mpq = new MPQArchive(mpqData);
+        console.log(this._mpq.files);
+        // console.log('replay.load.info', this._mpq.readFile('replay.load.info').toString('utf-8'));
+        //  console.log('replay.resumable.events', this._mpq.readFile('replay.resumable.events').toString('utf-8'));
+        //  console.log('replay.server.battlelobby', this._mpq.readFile('replay.server.battlelobby').toString('utf-8'));
         this.manageStatus();
     }
 

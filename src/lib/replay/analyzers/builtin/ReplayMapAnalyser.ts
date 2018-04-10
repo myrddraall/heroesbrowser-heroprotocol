@@ -1,10 +1,10 @@
-import { Replay } from '../Replay';
-import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent } from '../../types';
+import { Replay } from '../../Replay';
+import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent, IReplayDetailsPlayer } from '../../../types';
 import * as linq from 'linq';
 import * as sha1 from 'sha1';
-import { IReplayDetailsPlayer } from '../../types';
-import { ReplayAnalyserContext, RunOnWorker } from '../decorators';
+import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
 // tslint:disable:no-bitwise
+import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
 
 export interface IMapDescriptor {
     name: string;
@@ -17,24 +17,17 @@ export interface IPoint {
 }
 
 @ReplayAnalyserContext('D90DC9EF-B016-47F1-984B-B9BA099869E6')
-export class ReplayMapAnalyser {
+export class ReplayMapAnalyser extends AbstractReplayAnalyser {
 
 
-    public constructor(private replay: Replay) { }
-
-
-    private get trackerQueriable(): Promise<linq.IEnumerable<IReplayTrackerEvent>> {
-        return (async (): Promise<linq.IEnumerable<IReplayTrackerEvent>> => {
-            const events = await this.replay.trackerEvents;
-            console.log(events);
-            return linq.from(events);
-        })();
+    public constructor(replay: Replay) {
+        super(replay);
     }
 
     @RunOnWorker()
     public get mapName(): Promise<string> {
         return (async (): Promise<string> => {
-            const details = await this.replay.details;
+            const details = await this.details;
             return details.m_title;
         })();
     }
@@ -43,8 +36,7 @@ export class ReplayMapAnalyser {
     @RunOnWorker()
     public get mapSize(): Promise<IPoint> {
         return (async (): Promise<IPoint> => {
-            const init = await this.replay.initData;
-            console.log('init', init);
+            const init = await this.initData;
             return {
                 x: init.m_syncLobbyState.m_gameDescription.m_mapSizeX,
                 y: init.m_syncLobbyState.m_gameDescription.m_mapSizeY
@@ -65,9 +57,9 @@ export class ReplayMapAnalyser {
     @RunOnWorker()
     public async getMinionSpawns(team?: number) {
         const protocol = await this.replay.protocol;
-        let q = <linq.IEnumerable<ISUnitBornEvent>>(await this.trackerQueriable)
+        let q = <linq.IEnumerable<ISUnitBornEvent>>(await this.trackerEventsQueriable)
             .where(
-            e => isSUnitBornEvent(e) && (e.m_controlPlayerId === 11 || e.m_controlPlayerId === 12) && e.m_unitTypeName.endsWith('Minion')
+                e => isSUnitBornEvent(e) && (e.m_controlPlayerId === 11 || e.m_controlPlayerId === 12) && e.m_unitTypeName.endsWith('Minion')
             );
         if (team === 1) {
             q = q.where(e => e.m_controlPlayerId === 11);
@@ -88,10 +80,10 @@ export class ReplayMapAnalyser {
     @RunOnWorker()
     public async getMercSpawns() {
         const protocol = await this.replay.protocol;
-        let q = <linq.IEnumerable<ISUnitBornEvent>>(await this.trackerQueriable)
+        let q = <linq.IEnumerable<ISUnitBornEvent>>(await this.trackerEventsQueriable)
             .where(
-            e => isSUnitBornEvent(e)
-                 && (e.m_unitTypeName.startsWith('King') || e.m_unitTypeName.startsWith('Town') || e.m_unitTypeName.startsWith('Underworld'))
+                e => isSUnitBornEvent(e)
+                    && (e.m_unitTypeName.startsWith('King') || e.m_unitTypeName.startsWith('Town') || e.m_unitTypeName.startsWith('Underworld'))
             );
 
         const result = q.select(e => ({
@@ -101,20 +93,15 @@ export class ReplayMapAnalyser {
             x: e.m_x,
             y: e.m_y
         }));
-        console.log('MIN X', result.min(e => e.x));
-        console.log('MAX X', result.max(e => e.x));
-        console.log('MIN Y', result.min(e => e.y));
-        console.log('MAX Y', result.max(e => e.y));
-
         return result.toArray();
     }
 
     @RunOnWorker()
     public async getMinionSpawnHeatmap(team?: number) {
         const protocol = await this.replay.protocol;
-        let q = <linq.IEnumerable<ISUnitBornEvent>>(await this.trackerQueriable)
+        let q = <linq.IEnumerable<ISUnitBornEvent>>(await this.trackerEventsQueriable)
             .where(
-            e => isSUnitBornEvent(e) //&& (e.m_controlPlayerId === 11 || e.m_controlPlayerId === 12) // && e.m_unitTypeName.endsWith('Minion')
+                e => isSUnitBornEvent(e) //&& (e.m_controlPlayerId === 11 || e.m_controlPlayerId === 12) // && e.m_unitTypeName.endsWith('Minion')
             );
         if (team === 1) {
             q = q.where(e => e.m_controlPlayerId === 11);
@@ -123,11 +110,11 @@ export class ReplayMapAnalyser {
         }
 
         const result = q.groupBy(i => `${i.m_x},${i.m_y}`)
-        .select(g => ({
-            value: g.count(),
-            x: g.first().m_x,
-            y: g.first().m_y
-        }));
+            .select(g => ({
+                value: g.count(),
+                x: g.first().m_x,
+                y: g.first().m_y
+            }));
 
         return result.toArray();
     }

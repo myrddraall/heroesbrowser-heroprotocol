@@ -14,6 +14,7 @@ import { filter } from 'rxjs/operators';
 
 export class ReplayContextCaller implements IWorkerContextHost {
 
+    
     private _workerContext: IWorkerContext;
     private _statusSubject: Subject<IReplayStatusMessage> = new Subject();
     private _statusSubjectSubscription: Subscription;
@@ -41,7 +42,6 @@ export class ReplayContextCaller implements IWorkerContextHost {
             }));
         this._protocolLoaderSubscription = this._workerContext.channelMessages.pipe(
             filter(msg => isLoadProtocolMessage(msg))).subscribe((async (protocolMessage: ILoadProtocolMessage) => {
-                console.log('ILoadProtocolMessage', protocolMessage);
                 const code = await HeroProtocol.loadProtocol(protocolMessage.version);
                 this.workerContext.send(<ILoadProtocolResultMessage>{
                     type: 'load-protocol-result',
@@ -49,6 +49,10 @@ export class ReplayContextCaller implements IWorkerContextHost {
                     code: code
                 });
             }));
+    }
+
+    public initialize(): Promise<void> {
+        throw new Error('initialize can only be called in the web worker context');
     }
 
     public dispose(): void {
@@ -61,43 +65,3 @@ export class ReplayContextCaller implements IWorkerContextHost {
         }
     }
 }
-
-
-/*import { AbstractWorkerProxy } from './AbstractWorkerProxy';
-import { isLoadProtocolMessage, ILoadProtocolResultMessage, isReplayStatusMessage, IReplayStatusMessage } from './messages';
-import { HeroProtocol } from '../../';
-import { BehaviorSubject } from 'rxjs/BehaviorSubject';
-
-export class ReplayProxy extends AbstractWorkerProxy {
-
-    private _statusSubject: BehaviorSubject<IReplayStatusMessage> = new BehaviorSubject(undefined);
-
-    public constructor(mpqData?: ArrayBuffer) {
-        super(new Worker('./assets/worker/worker.js'), mpqData, [mpqData]);
-    }
-
-    public get status(): BehaviorSubject<IReplayStatusMessage> {
-        return this._statusSubject;
-    }
-
-    public get protocol(): Promise<any> {
-        throw new Error('Protocol can only be accessed in the web worker context');
-    }
-
-    protected async handleWorkerMessage(data: any) {
-        if (isLoadProtocolMessage(data)) {
-            const code = await HeroProtocol.loadProtocol(data.version);
-            this.send(<ILoadProtocolResultMessage>{
-                type: 'load-protocol-result',
-                version: data.version,
-                code: code
-            });
-        } else if (isReplayStatusMessage(data)) {
-            console.log(data);
-            this._statusSubject.next(data);
-        } else {
-            super.handleWorkerMessage(data);
-        }
-    }
-}
-*/

@@ -14,6 +14,10 @@ export class ReplayAnalyserContextCaller implements IWorkerContextHost {
         this.workerContext.addCallContext(this);
     }
 
+    public initialize(): Promise<void> {
+        throw new Error('initialize can only be called in the web worker context');
+    }
+    
     public dispose(): void {
         if (this._replay) {
             this.workerContext.removeCallContext(this);

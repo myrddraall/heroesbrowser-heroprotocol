@@ -1,10 +1,13 @@
 
-import { ReplayAnalyserContext, RunOnWorker } from '../decorators';
-import { Replay } from '../Replay';
-import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent } from '../../types';
+import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
+import { Replay } from '../../Replay';
+import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent } from '../../../types';
 import * as linq from 'linq';
 import { BasicReplayAnalyser } from './BasicReplayAnalyser'
-import { ReplayToOldError } from "../errors"
+import { ReplayVersionOutOfRangeError } from "../../errors";
+import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
+import { RequiredReplayVersion } from '../decorators';
+
 export interface IPlayerScores {
     "Takedowns": number;
     "Deaths": number;
@@ -28,44 +31,25 @@ export interface IScoreScreenData {
 }
 
 @ReplayAnalyserContext('0B9EBC25-CB1F-47CC-B287-D806D58E2C55')
-export class ScoreAnalyser {
+export class ScoreAnalyser extends AbstractReplayAnalyser {
     private basicReplayAnalyser: BasicReplayAnalyser;
 
-    public constructor(private replay: Replay) {
+    public constructor(replay: Replay) {
+        super(replay);
         this.basicReplayAnalyser = new BasicReplayAnalyser(replay);
     }
 
-
-    private get trackerQueriable(): Promise<linq.IEnumerable<IReplayTrackerEvent>> {
-        return (async (): Promise<linq.IEnumerable<IReplayTrackerEvent>> => {
-            const events = await this.replay.trackerEvents;
-            console.log(events);
-            return linq.from(events);
-        })();
-    }
-
-
-    private async checkMinVersion(minVer: number, message?:string): Promise<void> {
-        const ver = await this.basicReplayAnalyser.version;
-        if (ver.protocol < minVer) {
-            throw new ReplayToOldError(message || "Replay to Old");
-        }
-    }
-
     @RunOnWorker()
+    @RequiredReplayVersion(40336, 'Scorescreen Data not supported by this version of replay')
     public get scoreScreenData(): Promise<IScoreScreenData> {
         return (async (): Promise<IScoreScreenData> => {
-            await this.checkMinVersion(40336, 'Scorescreen Data not supported by this version of replay');
             const playerScores = await this.playerScoresSimple;
-            const trackerQueriable = await this.trackerQueriable;
+            const trackerQueriable = await this.trackerEventsQueriable;
             const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();
             const takeDowns = linq.from(results.m_instanceList)
                 .where(l => l.m_name === 'TeamTakedowns')
                 .selectMany(l => l.m_values)
-                .where(td => {
-                    console.log('TeamTakedowns', td);
-                    return td[0] && td[0].m_value !== 0
-                })
+                .where(td => td[0] && td[0].m_value !== 0)
                 .select(td => td[0].m_value)
                 .toArray();
 
@@ -94,12 +78,11 @@ export class ScoreAnalyser {
     }
 
     @RunOnWorker()
+    @RequiredReplayVersion(40336, 'Player score data not supported by this version of replay')
     public get playerScoresSimple(): Promise<IPlayerScores[]> {
         return (async (): Promise<any> => {
-            await this.checkMinVersion(40336, 'Player score data not supported by this version of replay');
-            const trackerQueriable = await this.trackerQueriable;
+            const trackerQueriable = await this.trackerEventsQueriable;
             const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();
-            console.log('!!!!>>>', results)
             const scoreStats = [
                 "Takedowns",
                 "Deaths",

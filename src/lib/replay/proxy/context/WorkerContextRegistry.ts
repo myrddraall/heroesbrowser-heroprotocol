@@ -21,7 +21,7 @@ export class WorkerContextRegistry {
 
     public static getContextCallerId(type: IWorkerCallContext | Type<IWorkerCallContext>): string {
         if (!isType(type)) {
-            type = type.constructor;
+            type = <any>type.constructor;
         }
         const id: string = Reflect.getOwnMetadata('workerContext:typeId', type);
         if (WorkerContextRegistry._contextCallers.has(id)) {

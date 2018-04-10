@@ -102,7 +102,7 @@ export class ReplayWorker {
     }
 
     private async handleWorkerPropertyCall(callId: number, call: IWorkerPropertyCall) {
-        const context = this.getContextInstance(call.context);
+        const context = await this.getContextInstance(call.context);
         const value = await context[this.getPropertyName(context, call.propertyId)];
         const result: IWorkerCallResultMessage = {
             type: 'worker-call-result',
@@ -113,7 +113,7 @@ export class ReplayWorker {
     }
 
     private async handleWorkerMethodCall(callId: number, call: IWorkerMethodCall) {
-        const context = this.getContextInstance(call.context);
+        const context = await this.getContextInstance(call.context);
         const fn: Function = context[this.getPropertyName(context, call.methodId)];
         const value = await fn.apply(context, call.args || []);
         const result: IWorkerCallResultMessage = {
@@ -141,13 +141,14 @@ export class ReplayWorker {
         return result;
     }*/
 
-    private getContextInstance(contextId: string) {
+    private async getContextInstance(contextId: string):Promise<any> {
         if (this._loadedContexts.has(contextId)) {
             return this._loadedContexts.get(contextId);
         }
         const contextType = WorkerContextRegistry.getContextCallerById(contextId);
         const contextInst = new contextType(this._replay);
         this._loadedContexts.set(contextId, contextInst);
+        await contextInst.initialize();
         return contextInst;
     }
 

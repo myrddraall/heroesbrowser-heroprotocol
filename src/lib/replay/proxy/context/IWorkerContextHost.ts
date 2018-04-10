@@ -1,7 +1,6 @@
 import { IWorkerContext } from './IWorkerContext';
-
-export interface IWorkerContextHost {
+import { IWorkerCallContext } from './IWorkerCallContext';
+export interface IWorkerContextHost extends IWorkerCallContext{
     readonly workerContext: IWorkerContext;
-
     dispose(): void;
 }
