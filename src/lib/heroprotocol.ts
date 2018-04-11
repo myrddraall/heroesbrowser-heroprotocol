@@ -37,7 +37,7 @@ export class HeroProtocol {
         }
         HeroProtocol._heroDataPromise = new Promise((resolve, reject)=>{
             const request = new XMLHttpRequest();
-            const path = 'http://hotsapi.net/api/v1/heroes';
+            const path = '//hotsapi.net/api/v1/heroes';
             request.open('GET', path, true);
             request.onload = () => {
                 const data = JSON.parse(request.responseText);
