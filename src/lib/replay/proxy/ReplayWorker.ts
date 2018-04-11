@@ -9,7 +9,8 @@ import {
     IWorkerCommandResult, isWorkerCommandResult,
     isWorkerCallMethodCommand, IWorkerCallMethodCommand,
     isWorkerGetPropertyCommand, IWorkerGetPropertyCommand,
-    ILoadProtocolMessage, isLoadProtocolResultMessage, ILoadProtocolResultMessage
+    ILoadProtocolMessage, isLoadProtocolResultMessage, ILoadProtocolResultMessage,
+    ILoadHeroDataMessage, isLoadHeroDataMessage, ILoadHeroDataResultMessage, isLoadHeroDataResultMessage
 
 } from './messages';
 import { WorkerContextRegistry } from './context/WorkerContextRegistry';
@@ -23,6 +24,7 @@ export class ReplayWorker {
     private _replay: Replay;
     private _messagePort: MessagePort;
     private _protocolPromisies: { [version: number]: { resolve: Function, reject: Function, promise: Promise<string> } } = {};
+    private _heroDataPromise: { resolve: Function, reject: Function, promise: Promise<any> };
 
     private _loadedContexts: Map<string, any> = new Map();
 
@@ -47,6 +49,8 @@ export class ReplayWorker {
                 }
             } else if (isLoadProtocolResultMessage(event.data)) {
                 this.handleProtocolResult(event.data);
+            }else if (isLoadHeroDataResultMessage(event.data)) {
+                this._heroDataPromise.resolve(event.data.data);
             }
         };
         this._replay = new Replay(initCmd.data);
@@ -58,7 +62,7 @@ export class ReplayWorker {
                 this.send(status);
             }
         });
-        const oldLoad = this._replay.loadProtocol;
+
         this._replay.loadProtocol = (version: number): Promise<string> => {
             if (this._protocolPromisies[version]) {
                 return this._protocolPromisies[version].promise;
@@ -75,6 +79,23 @@ export class ReplayWorker {
             this.send(<ILoadProtocolMessage>{
                 type: 'load-protocol',
                 version: version
+            });
+            return promise;
+        };
+        this._replay.loadHeroData = (): Promise<any> => {
+            if (this._heroDataPromise) {
+                return this._heroDataPromise.promise;
+            }
+            const promise = new Promise<any>((resolve, reject) => {
+                this._heroDataPromise = {
+                    resolve,
+                    reject,
+                    promise: undefined
+                };
+            });
+            this._heroDataPromise.promise = promise;
+            this.send(<ILoadHeroDataMessage>{
+                type: 'load-hero-data'
             });
             return promise;
         };
@@ -141,7 +162,7 @@ export class ReplayWorker {
         return result;
     }*/
 
-    private async getContextInstance(contextId: string):Promise<any> {
+    private async getContextInstance(contextId: string): Promise<any> {
         if (this._loadedContexts.has(contextId)) {
             return this._loadedContexts.get(contextId);
         }

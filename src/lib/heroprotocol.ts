@@ -5,7 +5,7 @@ export class HeroProtocol {
     public static env = 'development';
     private static _protocols: Map<number, IHeroProtocol> = new Map<number, IHeroProtocol>();
     private static _protocolCode: Map<number, string> = new Map<number, string>();
-
+    private static _heroDataPromise:Promise<any>;
 
     public static loadProtocol(protocolVersion: number): Promise<string> {
         const path = `https://raw.githubusercontent.com/Blizzard/heroprotocol/master/protocol${protocolVersion}.py`;
@@ -30,6 +30,30 @@ export class HeroProtocol {
             }
         });
     }
+
+    public static loadHeroData(): Promise<any> {
+        if(HeroProtocol._heroDataPromise){
+            return HeroProtocol._heroDataPromise;
+        }
+        HeroProtocol._heroDataPromise = new Promise((resolve, reject)=>{
+            const request = new XMLHttpRequest();
+            const path = 'http://hotsapi.net/api/v1/heroes';
+            request.open('GET', path, true);
+            request.onload = () => {
+                const data = JSON.parse(request.responseText);
+                resolve(data);
+            };
+            request.onabort = (event) => {
+                reject(event);
+            };
+            request.onerror = (event) => {
+                reject(event);
+            };
+            request.send();
+        });
+        return HeroProtocol._heroDataPromise;
+    }
+
     public static async getProtocol(protocolVersion: number): Promise<IHeroProtocol> {
         if (HeroProtocol.hasProtocol(protocolVersion)) {
             return HeroProtocol._protocols.get(protocolVersion);

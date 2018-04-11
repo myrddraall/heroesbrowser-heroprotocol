@@ -16,7 +16,7 @@ export function isSUnitBornEvent(obj: any): obj is ISUnitBornEvent {
 }
 
 
-export interface IKeyValueArray<T>{
+export interface IKeyValueArray<T> {
     readonly m_name: string;
     readonly m_values: T[][];
 }
@@ -32,4 +32,27 @@ export interface ISScoreResultEvent {
 
 export function isSScoreResultEvent(obj: any): obj is ISScoreResultEvent {
     return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SScoreResultEvent';
+}
+
+
+export interface ISHeroBannedEvent extends IReplayTrackerEvent {
+    readonly _event: 'NNet.Replay.Tracker.SHeroBannedEvent';
+    readonly m_controllingTeam: number;
+    readonly m_hero: string
+}
+
+export function isSHeroBannedEvent(obj: any): obj is ISHeroBannedEvent {
+    return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SHeroBannedEvent';
+}
+
+
+export interface ISHeroPickedEvent extends IReplayTrackerEvent {
+    readonly _event: 'NNet.Replay.Tracker.SHeroPickedEvent';
+    readonly m_controllingPlayer: number;
+    readonly m_hero: string
+}
+
+
+export function isSHeroPickedEvent(obj: any): obj is ISHeroPickedEvent {
+    return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SHeroPickedEvent';
 }

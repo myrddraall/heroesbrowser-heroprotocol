@@ -36,7 +36,12 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
 
     public constructor(replay: Replay) {
         super(replay);
-        this.basicReplayAnalyser = new BasicReplayAnalyser(replay);
+    }
+
+    public async initialize():Promise<void>{
+        await super.initialize();
+        this.basicReplayAnalyser = new BasicReplayAnalyser(this.replay);
+        await this.basicReplayAnalyser.initialize();
     }
 
     @RunOnWorker()

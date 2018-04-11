@@ -82,11 +82,11 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
             const gameEvents = await this.gameEvents;
             const trackerEvents = await this.trackerEvents;
             const attributeEvents = await this.attributeEvents;
-           // console.log('initData', initData);
-           // console.log('details', details);
-           // console.log('gameEvents', gameEvents);
-            //console.log('trackerEvents', trackerEvents);
-          //  console.log('attributeEvents', attributeEvents);
+            console.log('initData', initData);
+            console.log('details', details);
+            console.log('gameEvents', gameEvents);
+            console.log('trackerEvents', trackerEvents);
+            console.log('attributeEvents', attributeEvents);
 
             const slotInfo: Partial<ISlotInfo>[] = [];
 

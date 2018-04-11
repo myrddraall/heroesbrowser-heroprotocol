@@ -72,6 +72,10 @@ export abstract class AbstractReplayAnalyser implements IReplayAnalyser {
         })();
     }
 
+    public get  heroData(): Promise<any> {
+        return this.replay.heroData;
+    }
+
     @RunOnWorker()
     public get gameType(): Promise<GameType> {
         return (async (): Promise<GameType> => {

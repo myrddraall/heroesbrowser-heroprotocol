@@ -76,6 +76,10 @@ export class Replay implements IWorkerCallContext {
         });
     }
 
+    public get heroData(): Promise<any> {
+        return this.getHeroData();
+    }
+
     public async initialize(): Promise<void> { }
 
     @RunOnWorker()
@@ -194,6 +198,10 @@ export class Replay implements IWorkerCallContext {
         return await HeroProtocol.loadProtocol(protocolVersion);
     }
 
+    public loadHeroData = async (): Promise<string> => {
+        return await HeroProtocol.loadHeroData();
+    }
+
     private async getProtocol(protocolVersion: number): Promise<IHeroProtocol> {
         this.updateStatus('getProtocol');
         if (HeroProtocol.hasProtocol(protocolVersion)) {
@@ -203,6 +211,13 @@ export class Replay implements IWorkerCallContext {
         const protocol = HeroProtocol.compile(protocolVersion, code);
         this.updateStatus('getProtocol', -1);
         return protocol;
+    }
+
+    private async getHeroData(): Promise<any> {
+        this.updateStatus('getHeroData');
+        const data = await this.loadHeroData();
+        this.updateStatus('getHeroData', -1);
+        return data;
     }
 
     private async parse<T>(type: ReplayFiles): Promise<T> {
