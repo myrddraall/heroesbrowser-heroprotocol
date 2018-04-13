@@ -1,5 +1,5 @@
 import { Replay } from '../../Replay';
-import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent, IReplayDetailsPlayer } from '../../../types';
+import { IReplayTrackerEvent, isSUnitBornEvent, ISUnitBornEvent, IReplayDetailsPlayer, IPoint } from '../../../types';
 import * as linq from 'linq';
 import * as sha1 from 'sha1';
 import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
@@ -11,10 +11,6 @@ export interface IMapDescriptor {
     size: IPoint;
 }
 
-export interface IPoint {
-    x: number;
-    y: number;
-}
 
 @ReplayAnalyserContext('D90DC9EF-B016-47F1-984B-B9BA099869E6')
 export class ReplayMapAnalyser extends AbstractReplayAnalyser {

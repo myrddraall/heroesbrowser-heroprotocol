@@ -72,7 +72,7 @@ export abstract class AbstractReplayAnalyser implements IReplayAnalyser {
         })();
     }
 
-    public get  heroData(): Promise<any> {
+    public get heroData(): Promise<any> {
         return this.replay.heroData;
     }
 
@@ -80,6 +80,13 @@ export abstract class AbstractReplayAnalyser implements IReplayAnalyser {
     public get gameType(): Promise<GameType> {
         return (async (): Promise<GameType> => {
             return this._gameType;
+        })();
+    }
+
+    @RunOnWorker()
+    public get tickRate(): Promise<number> {
+        return (async (): Promise<number> => {
+            return 16;
         })();
     }
 
@@ -92,13 +99,13 @@ export abstract class AbstractReplayAnalyser implements IReplayAnalyser {
 
     @WorkerOnly()
     protected checkMinVersion(minVer: number, message?: string): void {
-        if(!this.versionMatches('>=' + minVer)){
+        if (!this.versionMatches('>=' + minVer)) {
             throw new ReplayVersionOutOfRangeError(message || "Replay to Old");
         }
     }
 
     @WorkerOnly()
-    public versionMatches(semVer:string):boolean{
+    public versionMatches(semVer: string): boolean {
         return semver.satisfies(this.protocolVersion + '.0.0', semVer);
     }
 

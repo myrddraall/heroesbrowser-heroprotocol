@@ -5,3 +5,4 @@ export * from './IReplayInitData';
 export * from './IReplayDetails';
 export * from './events';
 export * from './type';
+export * from './geom';

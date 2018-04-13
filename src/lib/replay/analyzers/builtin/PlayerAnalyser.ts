@@ -79,15 +79,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
         return (async (): Promise<IPlayerSlot[]> => {
             const initData = await this.initData;
             const details = await this.details;
-            const gameEvents = await this.gameEvents;
-            const trackerEvents = await this.trackerEvents;
-            const attributeEvents = await this.attributeEvents;
-            console.log('initData', initData);
-            console.log('details', details);
-            console.log('gameEvents', gameEvents);
-            console.log('trackerEvents', trackerEvents);
-            console.log('attributeEvents', attributeEvents);
-
+         
             const slotInfo: Partial<ISlotInfo>[] = [];
 
             // all slots inc obs, has skin
