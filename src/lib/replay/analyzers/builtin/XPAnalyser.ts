@@ -4,7 +4,8 @@ import { Replay } from '../../Replay';
 import {
     isPeriodicXPBreakdownSStatGameEvent, ISStatGameEvent,
     ISStatGameEventData, getSStatValue,
-    isEndOfGameXPBreakdownSStatGameEvent
+    isEndOfGameXPBreakdownSStatGameEvent,
+    ISScoreResultEvent, isSScoreResultEvent
 } from '../../../types';
 import * as linq from 'linq';
 import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
@@ -52,6 +53,7 @@ export class XPAnalyser extends AbstractReplayAnalyser {
         return (async (): Promise<IPeriodicXP[]> => {
             const trackableQ = await this.trackerEventsQueriable;
             const playerQ = linq.from(await this.playerAnalyser.playerSlotData);
+
             const tickRate = await this.tickRate;
             const result = trackableQ
                 .where(_ => isPeriodicXPBreakdownSStatGameEvent(_))
@@ -68,9 +70,21 @@ export class XPAnalyser extends AbstractReplayAnalyser {
                 }))
                 .toArray();
 
+            const lvlResult = <ISScoreResultEvent><any>trackableQ.where(e => isSScoreResultEvent(e)).last();
+            const levels = linq.from(lvlResult.m_instanceList)
+                .where(l => l.m_name === 'Level')
+                .selectMany(_ => _.m_values)
+                .select((l, i) => ({
+                    i: i,
+                    l: l[0] ? l[0].m_value : undefined
+                }))
+                .where(r => r.i === 0 || r.i === 5)
+                .select(_ => _.l)
+                .toArray();
+
             const endOfGameResults = trackableQ
                 .where(_ => isEndOfGameXPBreakdownSStatGameEvent(_))
-                .select((_:ISStatGameEvent) =>({
+                .select((_: ISStatGameEvent) => ({
                     time: _._gameloop / tickRate,
                     userId: getSStatValue(_.m_intData, 'PlayerID'),
                     minionXP: getSStatValue(_.m_fixedData, 'MinionXP', true),
@@ -78,16 +92,16 @@ export class XPAnalyser extends AbstractReplayAnalyser {
                     structureXP: getSStatValue(_.m_fixedData, 'StructureXP', true),
                     heroXP: getSStatValue(_.m_fixedData, 'HeroXP', true),
                     trickleXP: getSStatValue(_.m_fixedData, 'TrickleXP', true),
-                    
+
                 }))
                 .join(
                     playerQ,
                     xp => xp.userId - 1,
                     p => p.userId,
-                    (xp, player)=>{
+                    (xp, player) => {
                         return Object.assign({}, xp, {
                             team: player.team,
-                            teamLevel: 20,
+                            teamLevel: player.team == 0 ? levels[0] : levels[1],
                             previousTime: result[result.length - 1].time
                         })
                     }
@@ -96,12 +110,12 @@ export class XPAnalyser extends AbstractReplayAnalyser {
                 .select(_ => _.first())
                 .toArray();
 
-            
+
             result.push(endOfGameResults[0]);
             result.push(endOfGameResults[1]);
-            
-                console.log('---',result);
-                console.log('@@@@@@@', endOfGameResults);
+
+            console.log('---', result);
+            console.log('@@@@@@@', endOfGameResults);
             return result;
         })();
     }
