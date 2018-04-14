@@ -80,7 +80,10 @@ export class Replay implements IWorkerCallContext {
         return this.getHeroData();
     }
 
-    public async initialize(): Promise<void> { }
+    public async initialize(): Promise<void> {
+        await this.parseHeader();
+        this.updateStatus('REPLAY_READY');
+     }
 
     @RunOnWorker()
     public get header(): Promise<IReplayHeader> {

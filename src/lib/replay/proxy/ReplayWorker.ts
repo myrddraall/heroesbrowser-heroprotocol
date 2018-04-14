@@ -99,6 +99,7 @@ export class ReplayWorker {
             });
             return promise;
         };
+        this._replay.initialize();
     }
 
 

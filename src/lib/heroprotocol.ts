@@ -1,5 +1,6 @@
 import { IHeroProtocol } from './types';
 import { PythonProtocolConverter } from './protocols/PythonProtocolConverter';
+import { FailedToLoadProtocolError } from './replay/errors';
 
 export class HeroProtocol {
     public static env = 'development';
@@ -15,10 +16,14 @@ export class HeroProtocol {
             } else {
                 const request = new XMLHttpRequest();
                 request.open('GET', path, true);
-                request.onload = () => {
-                    const p = HeroProtocol.convertProtocolFromPython(protocolVersion, request.responseText);
-                    HeroProtocol._protocolCode.set(protocolVersion, p);
-                    resolve(p);
+                request.onload = (evt) => {
+                    if(request.status === 200){
+                        const p = HeroProtocol.convertProtocolFromPython(protocolVersion, request.responseText);
+                        HeroProtocol._protocolCode.set(protocolVersion, p);
+                        resolve(p);
+                    }else{
+                        reject(new FailedToLoadProtocolError(protocolVersion, `Failed to load Heroes Protocol ${protocolVersion}`));
+                    }
                 };
                 request.onabort = (event) => {
                     reject(event);
