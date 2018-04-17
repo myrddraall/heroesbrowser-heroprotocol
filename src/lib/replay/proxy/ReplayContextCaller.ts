@@ -46,7 +46,6 @@ export class ReplayContextCaller implements IWorkerContextHost {
         this._workerContext.addCallContext(this);
         this._statusSubjectSubscription = this._workerContext.channelMessages.pipe(
             filter(msg => isReplayStatusMessage(msg))).subscribe(((statusMessage: IReplayStatusMessage) => {
-                console.log('>>>>', statusMessage)
                 if(statusMessage.status === 'REPLAY_READY'){
                     this.replayInitPromise.resolve();
                 }
@@ -63,9 +62,7 @@ export class ReplayContextCaller implements IWorkerContextHost {
         this._protocolLoaderSubscription = this._workerContext.channelMessages.pipe(
             filter(msg => isLoadProtocolMessage(msg))).subscribe((async (protocolMessage: ILoadProtocolMessage) => {
                 try{
-                    console.log('loading protocol', protocolMessage.version);
                     const code = await HeroProtocol.loadProtocol(protocolMessage.version);
-                    console.log('loaded protocol', protocolMessage.version);
                     this.workerContext.send(<ILoadProtocolResultMessage>{
                         type: 'load-protocol-result',
                         version: protocolMessage.version,

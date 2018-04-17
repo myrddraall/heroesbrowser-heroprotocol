@@ -5,7 +5,9 @@ import {
     isPeriodicXPBreakdownSStatGameEvent, ISStatGameEvent,
     ISStatGameEventData, getSStatValue,
     isEndOfGameXPBreakdownSStatGameEvent,
-    ISScoreResultEvent, isSScoreResultEvent
+    ISScoreResultEvent, isSScoreResultEvent,
+    isSUnitBornEvent, isSUnitDiedEvent,
+    ISUnitBornEvent, ISUnitDiedEvent
 } from '../../../types';
 import * as linq from 'linq';
 import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
@@ -52,8 +54,8 @@ export class XPAnalyser extends AbstractReplayAnalyser {
     public get periodicXP(): Promise<IPeriodicXP[]> {
         return (async (): Promise<IPeriodicXP[]> => {
             const trackableQ = await this.trackerEventsQueriable;
-            const playerQ = linq.from(await this.playerAnalyser.playerSlotData);
-
+            const players = await this.playerAnalyser.playerSlotData;
+            const protocol = await this.replay.protocol;
             const tickRate = await this.tickRate;
             const result = trackableQ
                 .where(_ => isPeriodicXPBreakdownSStatGameEvent(_))
@@ -82,40 +84,35 @@ export class XPAnalyser extends AbstractReplayAnalyser {
                 .select(_ => _.l)
                 .toArray();
 
+            const coreDeath = trackableQ.where(_ => isSUnitBornEvent(_) && _.m_unitTypeName === 'KingsCore')
+                .join(
+                    trackableQ.where(_ => isSUnitDiedEvent(_)),
+                    (b: ISUnitBornEvent) => protocol.unitTag(b.m_unitTagIndex, b.m_unitTagRecycle),
+                    (d: ISUnitDiedEvent) => protocol.unitTag(d.m_unitTagIndex, d.m_unitTagRecycle),
+                    (b: ISUnitBornEvent, d: ISUnitDiedEvent) => d._gameloop
+                ).first();
+
             const endOfGameResults = trackableQ
                 .where(_ => isEndOfGameXPBreakdownSStatGameEvent(_))
-                .select((_: ISStatGameEvent) => ({
-                    time: _._gameloop / tickRate,
-                    userId: getSStatValue(_.m_intData, 'PlayerID'),
-                    minionXP: getSStatValue(_.m_fixedData, 'MinionXP', true),
-                    creepXP: getSStatValue(_.m_fixedData, 'CreepXP', true),
-                    structureXP: getSStatValue(_.m_fixedData, 'StructureXP', true),
-                    heroXP: getSStatValue(_.m_fixedData, 'HeroXP', true),
-                    trickleXP: getSStatValue(_.m_fixedData, 'TrickleXP', true),
-
-                }))
-                .join(
-                    playerQ,
-                    xp => xp.userId - 1,
-                    p => p.userId,
-                    (xp, player) => {
-                        return Object.assign({}, xp, {
-                            team: player.team,
-                            teamLevel: player.team == 0 ? levels[0] : levels[1],
-                            previousTime: result[result.length - 1].time
-                        })
+                .select((_: ISStatGameEvent) => {
+                    const playerIndex = getSStatValue(_.m_intData, 'PlayerID') - 1;
+                    const player = players[playerIndex];
+                    return {
+                        team: player.team,
+                        teamLevel: player.team == 0 ? levels[0] : levels[1],
+                        time: coreDeath / tickRate,
+                        previousTime: result[result.length - 1].time,
+                        userId: getSStatValue(_.m_intData, 'PlayerID'),
+                        minionXP: getSStatValue(_.m_fixedData, 'MinionXP', true),
+                        creepXP: getSStatValue(_.m_fixedData, 'CreepXP', true),
+                        structureXP: getSStatValue(_.m_fixedData, 'StructureXP', true),
+                        heroXP: getSStatValue(_.m_fixedData, 'HeroXP', true),
+                        trickleXP: getSStatValue(_.m_fixedData, 'TrickleXP', true),
                     }
-                )
-                .groupBy(_ => _.team)
-                .select(_ => _.first())
-                .toArray();
+                });
 
-
-            result.push(endOfGameResults[0]);
-            result.push(endOfGameResults[1]);
-
-            console.log('---', result);
-            console.log('@@@@@@@', endOfGameResults);
+            result.push(endOfGameResults.first(_ => _.team === 0));
+            result.push(endOfGameResults.first(_ => _.team === 1));
             return result;
         })();
     }

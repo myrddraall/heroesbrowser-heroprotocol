@@ -77,8 +77,8 @@ export class BasicReplayAnalyser extends AbstractReplayAnalyser {
     @RunOnWorker()
     public get winningTeam(): Promise<number> {
         return (async (): Promise<number> => {
-            const details = await this.details;
-            return details.m_playerList[0].m_teamId === 0 && details.m_playerList[0].m_result === 1 ? 0 : 1;
+            const players = await this.playerList;
+            return linq.from(players).first(_ => _.team === 0).won ? 0 : 1;
         })();
     }
 

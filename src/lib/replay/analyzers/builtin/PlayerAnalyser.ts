@@ -91,7 +91,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
             // only actual players od the game, conatains  realm and region info and game result
             const detailPlayerlist = details.m_playerList;
 
-            for (let i = 0; i < lobbySlots.length; i++) {
+            for (let i = 0; i < 10; i++) {
                 const slot = lobbySlots[i];
 
                 const info: Partial<ISlotInfo> = {
@@ -119,13 +119,15 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
 
             for (let i = 0; i < detailPlayerlist.length; i++) {
                 const detail = detailPlayerlist[i];
-                const slot = slotInfoQ.single(_ => _.m_workingSetSlotId === detail.m_workingSetSlotId);
-                slot.m_toon_id = detail.m_toon.m_id;
-                slot.m_programId = detail.m_toon.m_programId;
-                slot.m_realm = detail.m_toon.m_realm;
-                slot.m_region = detail.m_toon.m_region;
-                slot.m_result = detail.m_result;
-                slot.m_hero = detail.m_hero;
+                const slot = slotInfoQ.singleOrDefault(_ => _.m_workingSetSlotId === detail.m_workingSetSlotId);
+                if(slot){
+                    slot.m_toon_id = detail.m_toon.m_id;
+                    slot.m_programId = detail.m_toon.m_programId;
+                    slot.m_realm = detail.m_toon.m_realm;
+                    slot.m_region = detail.m_toon.m_region;
+                    slot.m_result = detail.m_result;
+                    slot.m_hero = detail.m_hero;
+                }
             }
 
             const slotList: IPlayerSlot[] = slotInfoQ
