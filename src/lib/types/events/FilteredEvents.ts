@@ -1,6 +1,6 @@
 export const FilteredEvents: string[] = [
     'NNet.Game.SLoadingProgressMessage',
-    'NNet.Replay.Tracker.SPlayerStatsEvent',
+    //'NNet.Replay.Tracker.SPlayerStatsEvent',
     'NNet.Replay.Tracker.SUnitPositionsEvent',
 
     'NNet.Game.SUserFinishedLoadingSyncEvent',
@@ -12,7 +12,7 @@ export const FilteredEvents: string[] = [
     'NNet.Game.SControlGroupUpdateEvent',
     'NNet.Game.SCommandManagerStateEvent',
     'NNet.Game.SCmdUpdateTargetPointEvent',
-    'NNet.Game.SCmdEvent',
+    //'NNet.Game.SCmdEvent',
     'NNet.Game.SCmdUpdateTargetUnitEvent',
     'NNet.Game.STriggerSoundtrackDoneEvent',
     'NNet.Game.STriggerDialogControlEvent',
@@ -27,7 +27,7 @@ export const FilteredEvents: string[] = [
     //'NNet.Game.SUserOptionsEvent',
 
     // tmp
-    'NNet.Game.STriggerPingEvent',
+    //'NNet.Game.STriggerPingEvent',
    // 'NNet.Replay.Tracker.SUnitBornEvent',
    // 'NNet.Replay.Tracker.SUnitDiedEvent',
    // 'NNet.Replay.Tracker.SUnitOwnerChangeEvent',

@@ -16,6 +16,20 @@ export function isSUnitBornEvent(obj: any): obj is ISUnitBornEvent {
     return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SUnitBornEvent';
 }
 
+export interface ISUnitDiedEvent extends IReplayTrackerEvent {
+    readonly _event: 'NNet.Replay.Tracker.SUnitDiedEvent';
+    readonly m_killerPlayerId: number;
+    readonly m_unitTagIndex: number;
+    readonly m_unitTagRecycle: number;
+    readonly m_killerUnitTagIndex: number;
+    readonly m_killerUnitTagRecycle: number;
+    readonly m_x: number;
+    readonly m_y: number;
+}
+
+export function isSUnitDiedEvent(obj: any): obj is ISUnitDiedEvent {
+    return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SUnitDiedEvent';
+}
 
 export interface IKeyValueArray<T> {
     readonly m_name: string;
@@ -83,6 +97,10 @@ export function isPeriodicXPBreakdownSStatGameEvent(obj: any): obj is ISStatGame
 
 export function isEndOfGameXPBreakdownSStatGameEvent(obj: any): obj is ISStatGameEvent {
     return isSStatGameEvent(obj) && obj.m_eventName === 'EndOfGameXPBreakdown';
+}
+
+export function isGameStartSStatGameEvent(obj: any): obj is ISStatGameEvent {
+    return isSStatGameEvent(obj) && obj.m_eventName === 'GameStart';
 }
 
 export function getSStatValue<T>(from: ISStatGameEventData<T>[], key: string, asFloat: boolean = false): T {
