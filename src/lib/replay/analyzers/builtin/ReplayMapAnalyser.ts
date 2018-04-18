@@ -1,13 +1,13 @@
 import { Replay } from '../../Replay';
-import { 
-    IReplayTrackerEvent, 
-    isSUnitBornEvent, 
-    ISUnitBornEvent, 
-    IReplayDetailsPlayer, 
-    IPoint, 
-    isGameStartSStatGameEvent, 
-    ISStatGameEvent, 
-    getSStatValue, 
+import {
+    IReplayTrackerEvent,
+    isSUnitBornEvent,
+    ISUnitBornEvent,
+    IReplayDetailsPlayer,
+    IPoint,
+    isGameStartSStatGameEvent,
+    ISStatGameEvent,
+    getSStatValue,
     isSStatGameEvent,
     ISUnitDiedEvent,
     isSUnitDiedEvent
@@ -39,6 +39,11 @@ export interface IUnitLife extends IUnitSpawn {
     deathX: number;
     deathY: number;
     deathTime: number;
+}
+
+export interface IMapPOI extends IPoint {
+    type: string;
+    team: number;
 }
 
 
@@ -168,16 +173,16 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
         }
     }
 
-  
-    public async getUnitDeaths(filterPredicate):Promise<IUnitLife[]> {
+
+    public async getUnitDeaths(filterPredicate): Promise<IUnitLife[]> {
         await this.genUnitTypes();
         const protocol = await this.replay.protocol;
         let q = await this.trackerEventsQueriable;
         let query = q.where(_ => isSUnitDiedEvent(_)).join(
             linq.from(this._unitTypes),
-            (died:ISUnitDiedEvent) => protocol.unitTag(died.m_unitTagIndex, died.m_unitTagRecycle),
+            (died: ISUnitDiedEvent) => protocol.unitTag(died.m_unitTagIndex, died.m_unitTagRecycle),
             born => born.id,
-            (died:ISUnitDiedEvent, born) =><IUnitLife>Object.assign({}, born, {
+            (died: ISUnitDiedEvent, born) => <IUnitLife>Object.assign({}, born, {
                 killingPlayerId: died.m_killerPlayerId,
                 killingUnitTag: died.m_killerUnitTagIndex ? protocol.unitTag(died.m_killerUnitTagIndex, died.m_killerUnitTagRecycle) : null,
                 deathX: died.m_x,
@@ -185,7 +190,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
                 deathTime: died._gameloop
             })
         );
-        if(filterPredicate){
+        if (filterPredicate) {
             query = query.where(filterPredicate);
         }
         return query.toArray();
@@ -193,7 +198,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
 
     @RunOnWorker()
     public async getMinionDeaths() {
-        return await this.getUnitDeaths((_:IUnitLife) => 
+        return await this.getUnitDeaths((_: IUnitLife) =>
             _.type === 'RangedMinion' ||
             _.type === 'FootmanMinion' ||
             _.type === 'WizardMinion'
@@ -204,18 +209,136 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
     public async getMinionDeathHeatmap() {
         const minionDeaths = linq.from(await this.getMinionDeaths());
         const result = minionDeaths.groupBy(_ => `${_.deathX},${_.deathY}`)
-        .select(g => ({
-            value: g.count(),
-            x: g.first().deathX,
-            y: g.first().deathY
-        }));
+            .select(g => ({
+                value: g.count(),
+                x: g.first().deathX,
+                y: g.first().deathY
+            }));
 
-    return result.toArray();
+        return result.toArray();
+    }
+
+
+    @RunOnWorker()
+    public async getPointsOfInterest(): Promise<IMapPOI[]> {
+        const trackerQ = await this.trackerEventsQueriable;
+
+        let cores = trackerQ
+            .where(e => isSUnitBornEvent(e) && e.m_unitTypeName === 'KingsCore')
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: _.m_controlPlayerId === 11 ? 0 : 1,
+                type: 'Core'
+            }));
+
+        let wells = trackerQ
+            .where(e => isSUnitBornEvent(e) && e.m_unitTypeName.startsWith('TownMoonwell'))
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: _.m_controlPlayerId === 11 ? 0 : 1,
+                type: 'MoonWell'
+            }));
+
+        let towers = trackerQ
+            .where(e => isSUnitBornEvent(e) && e.m_unitTypeName.startsWith('TownCannonTower'))
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: _.m_controlPlayerId === 11 ? 0 : 1,
+                type: 'Tower'
+            }));
+
+        let towns = trackerQ
+            .where(e => isSUnitBornEvent(e) && e.m_unitTypeName.startsWith('TownTownHall'))
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: _.m_controlPlayerId === 11 ? 0 : 1,
+                type: 'Town'
+            }));
+
+        let watchTowers = trackerQ
+            .where(e => isSUnitBornEvent(e) && e.m_unitTypeName.endsWith('WatchTower'))
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 2,
+                type: 'WatchTower'
+            }));
+
+        const mapSpecificPOIs = await this.getMapSpecificPOIs();
+
+        return cores.merge(wells, towers, towns, watchTowers, ...mapSpecificPOIs).toArray();
+    }
+
+    private async getMapSpecificPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
+        const mapName = await this.mapName;
+        switch (mapName) {
+            case 'Cursed Hollow':
+                return await this.getCursedHollowPOIs();
+            case 'Haunted Mines':
+                return await this.getHauntedMinesPOIs();
+        }
+        return [];
+    }
+
+    private async getCursedHollowPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
+        const result: linq.IEnumerable<IMapPOI>[] = [];
+        const trackerQ = await this.trackerEventsQueriable;
+        let trib = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'RavenLordTribute'))
+            .distinct((_:ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 3,
+                type: 'CH_Tribute'
+            }));
+        result.push(trib);
+        return result;
+    }
+    private async getHauntedMinesPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
+        const result: linq.IEnumerable<IMapPOI>[] = [];
+        const trackerQ = await this.trackerEventsQueriable;
+        let mineEntrances = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'HoleLadderDown' || e.m_unitTypeName === 'HoleLadderUp'))
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 2,
+                type: 'HM_MineEntrance'
+            }));
+        result.push(mineEntrances);
+
+        let underworldBoss = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'UnderworldBoss'))
+            .distinct((_: ISUnitBornEvent) => _.m_unitTypeName)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 3,
+                type: 'HM_UnderworldBoss'
+            }));
+        result.push(underworldBoss);
+        
+        let underworldBossSummon = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'UnderworldSummonedBoss'))
+            .distinct((_:ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: _.m_controlPlayerId === 11 ? 0 : 1,
+                type: 'HM_UnderworldBoss'
+            }));
+        result.push(underworldBossSummon);
+        return result;
     }
 
     @RunOnWorker()
     public async getMajorLocations() {
-        const protocol = await this.replay.protocol;
+
         const trackerQ = await this.trackerEventsQueriable;
         let cores = trackerQ
             .where(e => isSUnitBornEvent(e) && e.m_unitTypeName === 'KingsCore')
