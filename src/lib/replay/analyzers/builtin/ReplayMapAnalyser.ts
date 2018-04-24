@@ -172,9 +172,11 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
             this._unitTypes = result.toArray()
         }
     }
+    private async getUnitDeaths(filterPredicate): Promise<IUnitLife[]> {
+        return (await this.getUnitDeathsQuery(filterPredicate)).toArray();
+    }
 
-
-    public async getUnitDeaths(filterPredicate): Promise<IUnitLife[]> {
+    private async getUnitDeathsQuery(filterPredicate): Promise<linq.IEnumerable<IUnitLife>> {
         await this.genUnitTypes();
         const protocol = await this.replay.protocol;
         let q = await this.trackerEventsQueriable;
@@ -193,7 +195,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
         if (filterPredicate) {
             query = query.where(filterPredicate);
         }
-        return query.toArray();
+        return query;
     }
 
     @RunOnWorker()
@@ -203,6 +205,62 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
             _.type === 'FootmanMinion' ||
             _.type === 'WizardMinion'
         );
+    }
+
+    @RunOnWorker()
+    public async getGlobeDeaths() {
+        const trackerQ = await this.trackerEventsQueriable;
+
+
+
+        const q = await this.getUnitDeathsQuery((_: IUnitLife) =>
+            _.type === 'RegenGlobe' ||
+            _.type === 'RegenGlobeNeutral'
+        );
+        const globesQ = q.groupBy(_ => {
+            if (_.type === 'RegenGlobe') {
+                return JSON.stringify({
+                    x: _.deathX,
+                    y: _.deathY,
+                    time: _.deathTime,
+                    control: _.spawnControlPlayerId
+                });
+            }
+            return JSON.stringify({
+                x: _.spawnX,
+                y: _.spawnY,
+                time: _.spawnTime,
+                control: _.spawnControlPlayerId
+            });
+        }, _ => _, (key, _) => {
+            const spawn = _.first();
+            const neutral = _.last();
+            const globe = {
+                type: 'globe',
+                x: spawn.spawnX,
+                y: spawn.spawnY,
+                spawnTime: spawn.spawnTime,
+                deathTime: neutral.deathTime,
+                lifeDuration: (neutral.deathTime - spawn.spawnTime) / 16,
+                lifeDurationTicks: (neutral.deathTime - spawn.spawnTime),
+                neutral: _.count() > 1,
+                stolen: neutral.spawnControlPlayerId !== neutral.killingPlayerId,
+                team: neutral.killingPlayerId === 11 ? 0 : 1
+            }
+            return globe;
+        });
+
+        const pickupQ = trackerQ.where(_ => isSStatGameEvent(_) && _.m_eventName === 'RegenGlobePickedUp')
+            .select((_: ISStatGameEvent) => ({
+                type: 'Pickup',
+                deathTime: _._gameloop,
+                playerId: getSStatValue(_.m_intData, 'PlayerID')
+            }));
+
+
+        const merged = linq.from([...globesQ.toArray(), ...pickupQ.toArray()]).orderBy(_ => _.deathTime).toArray();
+        //groupBy<TKey, TElement, TResult, TCompare>(keySelector: (element: T) => TKey, elementSelector: (element: T) => TElement, resultSelector: (key: TKey, element: IEnumerable<TElement>) => TResult, compareSelector: (element: T) => TCompare): IEnumerable<TResult>;
+        return merged;
     }
 
     @RunOnWorker()
@@ -268,14 +326,28 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
                 type: 'WatchTower'
             }));
 
+        let camps = trackerQ
+            .where(e => isSStatGameEvent(e) && e.m_eventName === 'JungleCampInit')
+            .select((_: ISStatGameEvent): IMapPOI => ({
+                x: getSStatValue(_.m_fixedData, 'PositionX', true),
+                y: getSStatValue(_.m_fixedData, 'PositionY', true),
+                team: 2,
+                type: 'JungleCamp'
+            }));
+
+
         const mapSpecificPOIs = await this.getMapSpecificPOIs();
 
-        return cores.merge(wells, towers, towns, watchTowers, ...mapSpecificPOIs).toArray();
+        return cores.merge(wells, towers, towns, watchTowers, camps, ...mapSpecificPOIs).toArray();
     }
 
     private async getMapSpecificPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
         const mapName = await this.mapName;
         switch (mapName) {
+            case 'Battlefield of Eternity':
+                return await this.getBattlefiledOfEternityPOIs();
+            case 'Blackheart\'s Bay':
+                return await this.getBlackheartsBayPOIs();
             case 'Cursed Hollow':
                 return await this.getCursedHollowPOIs();
             case 'Haunted Mines':
@@ -284,12 +356,56 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
         return [];
     }
 
+    private async getBattlefiledOfEternityPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
+        const result: linq.IEnumerable<IMapPOI>[] = [];
+        const trackerQ = await this.trackerEventsQueriable;
+        let immortals = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'BossDuelBossHeaven' || e.m_unitTypeName === 'BossDuelBossHell'))
+            .distinct((_: ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 3,
+                type: 'BoE_Immortal'
+            }));
+        result.push(immortals);
+        return result;
+    }
+ 
+    private async getBlackheartsBayPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
+        const result: linq.IEnumerable<IMapPOI>[] = [];
+        const trackerQ = await this.trackerEventsQueriable;
+        let chests = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'DocksTreasureChest'))
+            .distinct((_: ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 3,
+                type: 'BHB_TreasureChest'
+            }));
+        result.push(chests);
+
+        let turnin = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'GhostShipBeacon'))
+            .distinct((_: ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 3,
+                type: 'BHB_Blackheart'
+            }));
+        result.push(turnin);
+        
+        return result;
+    }
+
     private async getCursedHollowPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
         const result: linq.IEnumerable<IMapPOI>[] = [];
         const trackerQ = await this.trackerEventsQueriable;
         let trib = trackerQ
             .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'RavenLordTribute'))
-            .distinct((_:ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .distinct((_: ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
             .select((_: ISUnitBornEvent): IMapPOI => ({
                 x: _.m_x,
                 y: _.m_y,
@@ -322,10 +438,10 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
                 type: 'HM_UnderworldBoss'
             }));
         result.push(underworldBoss);
-        
+
         let underworldBossSummon = trackerQ
             .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'UnderworldSummonedBoss'))
-            .distinct((_:ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .distinct((_: ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
             .select((_: ISUnitBornEvent): IMapPOI => ({
                 x: _.m_x,
                 y: _.m_y,
