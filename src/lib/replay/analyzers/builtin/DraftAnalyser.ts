@@ -48,7 +48,7 @@ export class DraftAnalyser extends AbstractReplayAnalyser {
                 .select((_: ISHeroBannedEvent, i) => {
                     const team = _.m_controllingTeam - 1;
                     const heroShort = helper.getBan(team, i < 2 ? 0 : 1);
-                    const hero:any = heroData.single((_: any) => _.attribute_id === heroShort);
+                    const hero:any = heroData.first((_: any) => _.attribute_id === heroShort);
                     return (<IHeroBan>{
                         type: 'ban',
                         team: _.m_controllingTeam - 1,

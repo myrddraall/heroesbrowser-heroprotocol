@@ -15,6 +15,7 @@ import {
 import * as linq from 'linq';
 import * as sha1 from 'sha1';
 import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
+import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
 // tslint:disable:no-bitwise
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
 
@@ -35,7 +36,11 @@ export interface IUnitSpawn {
 
 export interface IUnitLife extends IUnitSpawn {
     killingUnitTag: number;
+    killingUnitType: string;
     killingPlayerId: number;
+    killingTeam: number;
+    spawnPlayerId: number;
+    spawnTeam: number;
     deathX: number;
     deathY: number;
     deathTime: number;
@@ -46,14 +51,29 @@ export interface IMapPOI extends IPoint {
     team: number;
 }
 
+export interface IUnitLifeFilter {
+    killedByPlayers?: number[] | boolean;
+    killedByMinions?: boolean;
+    killedByTeams?: number | number[];
+    isOnTeam?: number | number[];
+    isOwnedByPlayers?: number[] | boolean;
+}
+
 
 @ReplayAnalyserContext('D90DC9EF-B016-47F1-984B-B9BA099869E6')
 export class ReplayMapAnalyser extends AbstractReplayAnalyser {
     private _unitTypesByTag: { [tag: number]: IUnitSpawn };
     private _unitTypes: IUnitSpawn[];
+    private playerAnalyser: PlayerAnalyser;
 
     public constructor(replay: Replay) {
         super(replay);
+    }
+
+    public async initialize(): Promise<void> {
+        await super.initialize();
+        this.playerAnalyser = new PlayerAnalyser(this.replay);
+        await this.playerAnalyser.initialize();
     }
 
     @RunOnWorker()
@@ -178,33 +198,129 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
 
     private async getUnitDeathsQuery(filterPredicate): Promise<linq.IEnumerable<IUnitLife>> {
         await this.genUnitTypes();
+        const players = await this.playerAnalyser.playerSlotData;
         const protocol = await this.replay.protocol;
         let q = await this.trackerEventsQueriable;
         let query = q.where(_ => isSUnitDiedEvent(_)).join(
             linq.from(this._unitTypes),
             (died: ISUnitDiedEvent) => protocol.unitTag(died.m_unitTagIndex, died.m_unitTagRecycle),
             born => born.id,
-            (died: ISUnitDiedEvent, born) => <IUnitLife>Object.assign({}, born, {
-                killingPlayerId: died.m_killerPlayerId,
-                killingUnitTag: died.m_killerUnitTagIndex ? protocol.unitTag(died.m_killerUnitTagIndex, died.m_killerUnitTagRecycle) : null,
-                deathX: died.m_x,
-                deathY: died.m_y,
-                deathTime: died._gameloop
-            })
-        );
+            (died: ISUnitDiedEvent, born) => {
+                const killPlayerIdx = died.m_killerPlayerId ? died.m_killerPlayerId - 1 : null;
+                const killingUnitId = died.m_killerUnitTagIndex ? protocol.unitTag(died.m_killerUnitTagIndex, died.m_killerUnitTagRecycle) : null;
+                let killingPlayer = null;
+                let killingTeam = null;
+
+                let killingUnit: IUnitSpawn = null;
+                if (killPlayerIdx !== null) {
+                    if (killPlayerIdx < 10) {
+                        killingPlayer = players[killPlayerIdx];
+                        killingTeam = killingPlayer.team;
+                    } else if (killPlayerIdx === 10) {
+                        killingTeam = 0;
+                    } else if (killPlayerIdx === 11) {
+                        killingTeam = 1;
+                    } else {
+                        console.log('UNKNOWN kill index:', killPlayerIdx, died, born.type)
+                    }
+                } else {
+                    console.log('NULL kill index:', died, born.type)
+                }
+
+                if (killingUnitId != null) {
+                    killingUnit = this._unitTypesByTag[killingUnitId];
+                }
+
+                const spawnPlayerIdx = born.spawnControlPlayerId ? born.spawnControlPlayerId - 1 : null;
+                let spawnPlayer = null;
+                let spawnTeam = null;
+
+                if (spawnPlayerIdx !== null) {
+                    if (spawnPlayerIdx < 10) {
+                        spawnPlayer = players[spawnPlayerIdx];
+                        spawnTeam = spawnPlayer.team;
+                    } else if (spawnPlayerIdx === 10) {
+                        spawnTeam = 0;
+                    } else if (spawnPlayerIdx === 11) {
+                        spawnTeam = 1;
+                    } else {
+                        console.log('UNKNOWN spawn control index:', spawnPlayerIdx, died, born.type)
+                    }
+                }
+                return <IUnitLife>Object.assign({}, born, {
+                    killingPlayerId: killPlayerIdx,
+                    killingUnitTag: killingUnitId,
+                    killingUnitType: killingUnit ? killingUnit.type : null,
+                    killingTeam: killingTeam,
+                    spawnTeam: spawnTeam,
+                    spawnPlayerId: spawnPlayerIdx,
+                    deathX: died.m_x,
+                    deathY: died.m_y,
+                    deathTime: died._gameloop
+                })
+            });
         if (filterPredicate) {
             query = query.where(filterPredicate);
         }
         return query;
     }
 
+    private checkUnitLifeFilter(unit: IUnitLife, filter: IUnitLifeFilter): boolean {
+        if (!filter) {
+            return true;
+        }
+        if (filter.killedByPlayers === true && unit.killingPlayerId > 9) {
+            return false;
+        }
+        if (Array.isArray(filter.killedByPlayers) && filter.killedByPlayers.indexOf(unit.killingPlayerId) === -1) {
+            return false;
+        }
+        if (unit.killingUnitType === 'RangedMinion' || unit.killingUnitType === 'FootmanMinion' || unit.killingUnitType === 'WizardMinion') {
+            if (filter.killedByMinions === false) {
+                return false;
+            }
+        } else {
+            if (filter.killedByMinions === true) {
+                return false;
+            }
+        }
+        if (filter.killedByTeams !== undefined) {
+            if (!Array.isArray(filter.killedByTeams)) {
+                filter.killedByTeams = [filter.killedByTeams];
+            }
+            if (filter.killedByTeams.indexOf(unit.killingTeam) === -1) {
+                return false;
+            }
+        }
+
+        if(filter.isOnTeam !== undefined){
+            if (!Array.isArray(filter.isOnTeam)) {
+                filter.isOnTeam = [filter.isOnTeam];
+            }
+            if (filter.isOnTeam.indexOf(unit.spawnTeam) === -1) {
+                return false;
+            }
+        }
+
+        if(filter.isOwnedByPlayers === true && unit.spawnPlayerId > 9){
+            return false;
+        }
+
+        if (Array.isArray(filter.isOwnedByPlayers) && filter.isOwnedByPlayers.indexOf(unit.spawnPlayerId) === -1) {
+            return false;
+        }
+
+        return true;
+    }
+
     @RunOnWorker()
-    public async getMinionDeaths() {
-        return await this.getUnitDeaths((_: IUnitLife) =>
-            _.type === 'RangedMinion' ||
-            _.type === 'FootmanMinion' ||
-            _.type === 'WizardMinion'
-        );
+    public async getMinionDeaths(filter?: IUnitLifeFilter) {
+        return await this.getUnitDeaths((_: IUnitLife) => {
+            if (!(_.type === 'RangedMinion' || _.type === 'FootmanMinion' || _.type === 'WizardMinion')) {
+                return false;
+            }
+            return this.checkUnitLifeFilter(_, filter);
+        });
     }
 
     @RunOnWorker()
@@ -264,8 +380,8 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
     }
 
     @RunOnWorker()
-    public async getMinionDeathHeatmap() {
-        const minionDeaths = linq.from(await this.getMinionDeaths());
+    public async getMinionDeathHeatmap(filter?: IUnitLifeFilter) {
+        const minionDeaths = linq.from(await this.getMinionDeaths(filter));
         const result = minionDeaths.groupBy(_ => `${_.deathX},${_.deathY}`)
             .select(g => ({
                 value: g.count(),
@@ -371,7 +487,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
         result.push(immortals);
         return result;
     }
- 
+
     private async getBlackheartsBayPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
         const result: linq.IEnumerable<IMapPOI>[] = [];
         const trackerQ = await this.trackerEventsQueriable;
@@ -396,7 +512,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
                 type: 'BHB_Blackheart'
             }));
         result.push(turnin);
-        
+
         return result;
     }
 
