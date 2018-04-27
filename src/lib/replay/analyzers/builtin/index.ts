@@ -5,3 +5,4 @@ export * from './ScoreAnalyser';
 export * from './DraftAnalyser';
 export * from './ChatAnalyser';
 export * from './XPAnalyser';
+export * from './TalentAnalyser';

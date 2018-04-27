@@ -326,9 +326,6 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
     @RunOnWorker()
     public async getGlobeDeaths() {
         const trackerQ = await this.trackerEventsQueriable;
-
-
-
         const q = await this.getUnitDeathsQuery((_: IUnitLife) =>
             _.type === 'RegenGlobe' ||
             _.type === 'RegenGlobeNeutral'

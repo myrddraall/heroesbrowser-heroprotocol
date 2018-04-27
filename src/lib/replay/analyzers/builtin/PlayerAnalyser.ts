@@ -16,7 +16,9 @@ export enum SlotType {
 
 
 interface ISlotInfo {
+    index: number;
     // from initData.m_syncLobbyState.m_lobbyState.m_slots
+
     m_announcerPack: string;
     m_banner: string;
     m_control: number; // 0?? 2: player
@@ -46,6 +48,7 @@ interface ISlotInfo {
 export interface IPlayerSlot {
     type: SlotType;
     id: number;
+    index:number;
     realm: number;
     region: number;
     handle: string;
@@ -95,6 +98,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                 const slot = lobbySlots[i];
 
                 const info: Partial<ISlotInfo> = {
+                    index: i,
                     m_announcerPack: slot.m_announcerPack,
                     m_banner: slot.m_banner,
                     m_control: slot.m_control,
@@ -147,6 +151,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                     const slot: IPlayerSlot = {
                         type: slotType,
                         id: _.m_toon_id,
+                        index: _.index,
                         realm: _.m_realm,
                         region: _.m_region,
                         handle: _.m_toonHandle,

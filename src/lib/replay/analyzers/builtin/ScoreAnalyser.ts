@@ -79,34 +79,6 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 team2Level,
                 playerScores
             };
-            console.log('!!scoreData', scoreData)
-            //const trackerQueriable = await this.trackerEventsQueriable;
-            
-            /*
-            const results = <ISScoreResultEvent><any>trackerQueriable.where(e => isSScoreResultEvent(e)).last();
-            
-            
-            const takeDowns = linq.from(results.m_instanceList)
-                .where(l => l.m_name === 'TeamTakedowns')
-                .selectMany(l => l.m_values)
-                .where(td => td[0] && td[0].m_value !== 0)
-                .select(td => td[0].m_value)
-                .toArray();
-
-            const levels = linq.from(results.m_instanceList)
-                .where(l => l.m_name === 'Level')
-                .selectMany(_ => _.m_values)
-                .select((l, i) => ({
-                    i: i,
-                    l: l[0] ? l[0].m_value : undefined
-                }))
-                .where(r => r.i === 0 || r.i === 5)
-                .select(_ => _.l)
-                .toArray();
-
-            // TODO: check to make sure teams kills are always reversed
-            
-            */
             return scoreData;
         })();
     }

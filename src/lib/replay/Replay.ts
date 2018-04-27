@@ -5,7 +5,8 @@ import {
     IHeroProtocol,
     IReplayHeader, IReplayDetails,
     IReplayInitData,
-    FilteredEvents, IReplayEvent, IReplayTrackerEvent
+    FilteredEvents, IReplayEvent, IReplayTrackerEvent,
+    IHeroData
 } from '../types';
 import { RunOnWorker, ReplayWorkerContext } from './decorators';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
@@ -76,7 +77,7 @@ export class Replay implements IWorkerCallContext {
         });
     }
 
-    public get heroData(): Promise<any> {
+    public get heroData(): Promise<IHeroData> {
         return this.getHeroData();
     }
 
@@ -201,7 +202,7 @@ export class Replay implements IWorkerCallContext {
         return await HeroProtocol.loadProtocol(protocolVersion);
     }
 
-    public loadHeroData = async (): Promise<string> => {
+    public loadHeroData = async (): Promise<IHeroData> => {
         return await HeroProtocol.loadHeroData();
     }
 
@@ -216,7 +217,7 @@ export class Replay implements IWorkerCallContext {
         return protocol;
     }
 
-    private async getHeroData(): Promise<any> {
+    private async getHeroData(): Promise<IHeroData> {
         this.updateStatus('getHeroData');
         const data = await this.loadHeroData();
         this.updateStatus('getHeroData', -1);
