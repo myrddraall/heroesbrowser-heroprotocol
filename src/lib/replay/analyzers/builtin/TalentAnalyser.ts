@@ -35,6 +35,7 @@ export class TalentAnalyser extends AbstractReplayAnalyser {
     }
 
     @RunOnWorker()
+    @RequiredReplayVersion(40336, 'Player talent data not supported by this version of replay')
     public get talents(): Promise<IPlayerTalentChoices[]> {
         return (async (): Promise<IPlayerTalentChoices[]> => {
             const trackerQueriable = await this.trackerEventsQueriable;

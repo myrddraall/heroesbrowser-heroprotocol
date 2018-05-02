@@ -13,7 +13,8 @@ import * as linq from 'linq';
 import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
 import { ReplayAttributeHelper } from '../../util/ReplayAttributeHelper';
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
-
+import { RequiredReplayVersion } from '../decorators';
+import { ReplayVersionOutOfRangeError } from "../../errors";
 // import { RequiredReplayVersion } from '../decorators';
 
 export interface IPeriodicXP {
@@ -51,6 +52,7 @@ export class XPAnalyser extends AbstractReplayAnalyser {
     }
 
     @RunOnWorker()
+    @RequiredReplayVersion(40336, 'Player xp data not supported by this version of replay')
     public get periodicXP(): Promise<IPeriodicXP[]> {
         return (async (): Promise<IPeriodicXP[]> => {
             const trackableQ = await this.trackerEventsQueriable;

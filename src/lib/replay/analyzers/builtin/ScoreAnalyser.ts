@@ -4,9 +4,9 @@ import { Replay } from '../../Replay';
 import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent } from '../../../types';
 import * as linq from 'linq';
 import { BasicReplayAnalyser } from './BasicReplayAnalyser'
-import { ReplayVersionOutOfRangeError } from "../../errors";
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
 import { RequiredReplayVersion } from '../decorators';
+import { ReplayVersionOutOfRangeError } from "../../errors";
 
 
 
@@ -210,7 +210,7 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
             return playerScores;
         })();
     }
-
+  
     @RunOnWorker()
     @RequiredReplayVersion(40336, 'Player score data not supported by this version of replay')
     public get playerScoresFull(): Promise<IPlayerScore[]> {
