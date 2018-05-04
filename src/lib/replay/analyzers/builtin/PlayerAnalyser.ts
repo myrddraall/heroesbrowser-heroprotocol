@@ -6,6 +6,8 @@ import * as linq from 'linq';
 import { BasicReplayAnalyser } from './BasicReplayAnalyser'
 import { ReplayVersionOutOfRangeError } from "../../errors"
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
+import { ReplayAttributeHelper } from '../../util/ReplayAttributeHelper';
+import { HeroRole } from '../types';
 
 export enum SlotType {
     EMPTY,
@@ -48,7 +50,7 @@ interface ISlotInfo {
 export interface IPlayerSlot {
     type: SlotType;
     id: number;
-    index:number;
+    index: number;
     realm: number;
     region: number;
     handle: string;
@@ -58,6 +60,7 @@ export interface IPlayerSlot {
     name: string;
     team: number;
     hero: string;
+    role: HeroRole;
     heroHandle: string;
     skin: string;
     mount: string;
@@ -70,7 +73,7 @@ export interface IPlayerSlot {
 }
 
 @ReplayAnalyserContext('09E13E2D-581E-4929-AEDA-FE8DA3FF3ACF')
-export class PlayerAnalyser extends AbstractReplayAnalyser{
+export class PlayerAnalyser extends AbstractReplayAnalyser {
 
     public constructor(replay: Replay) {
         super(replay);
@@ -82,7 +85,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
         return (async (): Promise<IPlayerSlot[]> => {
             const initData = await this.initData;
             const details = await this.details;
-         
+            const attrib = new ReplayAttributeHelper(await this.attributeEvents);
             const slotInfo: Partial<ISlotInfo>[] = [];
 
             // all slots inc obs, has skin
@@ -124,7 +127,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
             for (let i = 0; i < detailPlayerlist.length; i++) {
                 const detail = detailPlayerlist[i];
                 const slot = slotInfoQ.singleOrDefault(_ => _.m_workingSetSlotId === detail.m_workingSetSlotId);
-                if(slot){
+                if (slot) {
                     slot.m_toon_id = detail.m_toon.m_id;
                     slot.m_programId = detail.m_toon.m_programId;
                     slot.m_realm = detail.m_toon.m_realm;
@@ -161,6 +164,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                         name: _.m_name,
                         team: slotType === SlotType.PLAYER || slotType === SlotType.AI ? _.m_teamId : -1,
                         hero: _.m_hero,
+                        role: attrib.getPlayerRole(_.index),
                         heroHandle: _.m_heroHandle,
                         skin: _.m_skin,
                         mount: _.m_mount,
@@ -171,6 +175,7 @@ export class PlayerAnalyser extends AbstractReplayAnalyser{
                         hasChatSilence: _.m_hasSilencePenalty,
                         hasVoiceSilence: _.m_hasVoiceSilencePenalty
                     };
+                    console.log(slot);
                     return slot;
                 })
                 .toArray();

@@ -6,6 +6,7 @@ import {
     IReplayHeader, IReplayDetails,
     IReplayInitData,
     FilteredEvents, IReplayEvent, IReplayTrackerEvent,
+    IReplayGameEvent,
     IHeroData
 } from '../types';
 import { RunOnWorker, ReplayWorkerContext } from './decorators';
@@ -105,8 +106,8 @@ export class Replay implements IWorkerCallContext {
     }
 
     @RunOnWorker()
-    public get gameEvents(): Promise<IReplayDetails[]> {
-        return this.events<IReplayDetails>(ReplayFiles.GAME_EVENTS);
+    public get gameEvents(): Promise<IReplayGameEvent[]> {
+        return this.events<IReplayGameEvent>(ReplayFiles.GAME_EVENTS);
     }
 
     @RunOnWorker()

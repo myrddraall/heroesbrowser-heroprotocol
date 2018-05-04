@@ -20,9 +20,9 @@ export function isIReplayUserEvent(obj: any): obj is IReplayUserEvent {
 }
 
 
-export interface IReplayGameEventBase extends IReplayUserEvent { }
+export interface IReplayGameEvent extends IReplayUserEvent { }
 
-export function isIReplayGameEventBase(obj: any): obj is IReplayGameEventBase {
+export function isIReplayGameEvent(obj: any): obj is IReplayGameEvent {
     return isIReplayEvent(obj) && obj._event.indexOf('NNet.Game.') === 0;
 }
 

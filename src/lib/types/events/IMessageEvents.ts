@@ -1,5 +1,5 @@
 // tslint:disable:no-empty-interface
-import { IReplayGameEventBase, isIReplayGameEventBase } from './IReplayEvent';
+import { IReplayGameEvent, isIReplayGameEvent } from './IReplayEvent';
 import { IAbility } from '../IBaseTypes';
 
 export const MessageEventTypes: string[] = [
@@ -12,10 +12,10 @@ export const MessageEventTypes: string[] = [
 
 
 
-export interface IReplayMessageEvent extends IReplayGameEventBase { }
+export interface IReplayMessageEvent extends IReplayGameEvent { }
 
 export function isIReplayMessageEvent(obj: any): obj is IReplayMessageEvent {
-    return isIReplayGameEventBase(obj) && MessageEventTypes.indexOf(obj._event) !== -1;
+    return isIReplayGameEvent(obj) && MessageEventTypes.indexOf(obj._event) !== -1;
 }
 
 export interface ISLoadingProgressMessage extends IReplayMessageEvent {
@@ -24,7 +24,7 @@ export interface ISLoadingProgressMessage extends IReplayMessageEvent {
 }
 
 export function isISLoadingProgressMessage(obj: any): obj is ISLoadingProgressMessage {
-    return isIReplayGameEventBase(obj) && obj._event === 'NNet.Game.SLoadingProgressMessage';
+    return isIReplayGameEvent(obj) && obj._event === 'NNet.Game.SLoadingProgressMessage';
 }
 
 export interface ISPingMessage extends IReplayMessageEvent {
@@ -34,7 +34,7 @@ export interface ISPingMessage extends IReplayMessageEvent {
 }
 
 export function isISPingMessage(obj: any): obj is ISPingMessage {
-    return isIReplayGameEventBase(obj) && obj._event === 'NNet.Game.SPingMessage';
+    return isIReplayGameEvent(obj) && obj._event === 'NNet.Game.SPingMessage';
 }
 
 export interface ISChatMessage extends IReplayMessageEvent {
@@ -44,7 +44,7 @@ export interface ISChatMessage extends IReplayMessageEvent {
 }
 
 export function isISChatMessage(obj: any): obj is ISChatMessage {
-    return isIReplayGameEventBase(obj) && obj._event === 'NNet.Game.SChatMessage';
+    return isIReplayGameEvent(obj) && obj._event === 'NNet.Game.SChatMessage';
 }
 
 export interface ISPlayerAnnounceMessage extends IReplayMessageEvent {
@@ -56,7 +56,7 @@ export interface ISPlayerAnnounceMessage extends IReplayMessageEvent {
 }
 
 export function isISPlayerAnnounceMessage(obj: any): obj is ISPlayerAnnounceMessage {
-    return isIReplayGameEventBase(obj) && obj._event === 'NNet.Game.SPlayerAnnounceMessage';
+    return isIReplayGameEvent(obj) && obj._event === 'NNet.Game.SPlayerAnnounceMessage';
 }
 
 
@@ -66,5 +66,5 @@ export interface ISReconnectNotifyMessage extends IReplayMessageEvent {
 }
 
 export function isISReconnectNotifyMessage(obj: any): obj is ISReconnectNotifyMessage {
-    return isIReplayGameEventBase(obj) && obj._event === 'NNet.Game.SReconnectNotifyMessage';
+    return isIReplayGameEvent(obj) && obj._event === 'NNet.Game.SReconnectNotifyMessage';
 }

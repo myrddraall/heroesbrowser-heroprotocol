@@ -1,7 +1,7 @@
 import { IReplayAnalyser } from './IReplayAnalyser';
 import { Replay } from '../Replay';
 import { WorkerOnly, RunOnWorker } from '../decorators';
-import { IReplayHeader, IReplayInitData, IReplayTrackerEvent, IReplayMessageEvent, IReplayDetails } from '../../types';
+import { IReplayHeader, IReplayInitData, IReplayTrackerEvent, IReplayMessageEvent, IReplayDetails, IReplayGameEvent } from '../../types';
 import { IReplayVeriosn, GameType } from './types';
 import { ReplayVersionOutOfRangeError } from '../errors';
 import * as linq from 'linq';
@@ -140,7 +140,7 @@ export abstract class AbstractReplayAnalyser implements IReplayAnalyser {
     }
 
     @WorkerOnly()
-    protected get gameEvents(): Promise<any> {
+    protected get gameEvents(): Promise<IReplayGameEvent[]> {
         return this.replay.gameEvents;
     }
 
@@ -159,8 +159,8 @@ export abstract class AbstractReplayAnalyser implements IReplayAnalyser {
     }
 
     @WorkerOnly()
-    protected get gameEventsQueriable(): Promise<linq.IEnumerable<any>> {
-        return (async (): Promise<linq.IEnumerable<any>> => {
+    protected get gameEventsQueriable(): Promise<linq.IEnumerable<IReplayGameEvent>> {
+        return (async (): Promise<linq.IEnumerable<IReplayGameEvent>> => {
             return linq.from(await this.gameEvents);
         })();
     }

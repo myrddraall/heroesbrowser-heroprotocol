@@ -41,7 +41,7 @@ export interface IScoreResult {
 }
 
 
-export interface ISScoreResultEvent {
+export interface ISScoreResultEvent extends IReplayTrackerEvent{
     readonly m_instanceList: IKeyValueArray<IScoreResult>[];
 }
 

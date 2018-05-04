@@ -1,3 +1,5 @@
+import { HeroRole } from '../analyzers/types';
+
 export class ReplayAttributeHelper {
 
     public constructor(private replayAttributeEvents: any) { }
@@ -64,6 +66,9 @@ export class ReplayAttributeHelper {
         return !!(banned.trim());
     }
 
+    public getPlayerRole(playerIndex: number): HeroRole {
+        return this.get(playerIndex + 1, 4007);
+    }
 
 
 }
