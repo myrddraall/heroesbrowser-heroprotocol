@@ -87,8 +87,17 @@ export interface IPlayerScore {
 }
 
 
+export enum ReplayStatSupport {
+    FULL,
+    PARTIAL,
+    FLAWED,
+    NONE
+}
+
+
 export interface IPlayerStatData {
     statNotes: { [stat: string]: string[] };
+    statSupport: { [stat: string]: ReplayStatSupport };
     playerStats: IPlayerScore[];
 }
 
@@ -215,18 +224,24 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
         })();
     }
 
-    private addStatNote(statNotes: { [stat: string]: Set<string> }, stat:string, note: string) {
-        if(!statNotes[stat]){
+    private addStatNote(statNotes: { [stat: string]: Set<string> }, stat: string, note: string) {
+        if (!statNotes[stat]) {
             statNotes[stat] = new Set();
         }
         statNotes[stat].add(note);
     }
+
+    private setStatSupport(statNotes: { [stat: string]: ReplayStatSupport }, stat: string, support: ReplayStatSupport) {
+        statNotes[stat] = support;
+    }
+
     @RunOnWorker()
     @RequiredReplayVersion(40336, 'Player score data not supported by this version of replay')
     public get playerScoresFull(): Promise<IPlayerStatData> {
         return (async (): Promise<IPlayerStatData> => {
             const result: IPlayerStatData = {
                 statNotes: {},
+                statSupport: {},
                 playerStats: []
             };
 
@@ -293,6 +308,11 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 playerStatsQ.where(_ => _.team === 1).sum(_ => _.stats.TeamfightDamageTaken),
             ];
 
+            const teamDamageSoaked = [
+                playerStatsQ.where(_ => _.team === 0).sum(_ => _.stats.DamageSoaked),
+                playerStatsQ.where(_ => _.team === 1).sum(_ => _.stats.DamageSoaked),
+            ];
+
             const teamHeroDamage = [
                 playerStatsQ.where(_ => _.team === 0).sum(_ => _.stats.HeroDamage),
                 playerStatsQ.where(_ => _.team === 1).sum(_ => _.stats.HeroDamage),
@@ -348,33 +368,33 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 const player = players[i];
                 const pStats = playerStat.stats;
 
-                pStats['Disconnects'] =  playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserLeaveEvent(_));
-                pStats['Reconnects'] =  playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserJoinEvent(_));
+                pStats['Disconnects'] = playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserLeaveEvent(_));
+                pStats['Reconnects'] = playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserJoinEvent(_));
 
-                const dcs = playerDCQuery.where(_ =>  _._userid.m_userId === player.userId).toArray();
+                const dcs = playerDCQuery.where(_ => _._userid.m_userId === player.userId).toArray();
                 let lastDCTime = -1;
                 let totalDCTime = 0;
                 let lastWasDC = false;
                 for (let j = 0; j < dcs.length; j++) {
                     const event = dcs[j];
-                    if(isSGameUserLeaveEvent(event)){
+                    if (isSGameUserLeaveEvent(event)) {
                         lastDCTime = event._gameloop / tickRate;
                         lastWasDC = true;
-                    }else if(isSGameUserJoinEvent(event)){
+                    } else if (isSGameUserJoinEvent(event)) {
                         lastWasDC = false;
-                        if(lastDCTime === -1){
+                        if (lastDCTime === -1) {
                             console.warn('Join event without leave event', event);
-                        }else{
+                        } else {
                             totalDCTime += (event._gameloop / tickRate) - lastDCTime;
                         }
                     }
                 }
-                if(lastWasDC){
+                if (lastWasDC) {
                     totalDCTime += gameTime - lastDCTime;
                 }
                 pStats['TimeDisconnected'] = totalDCTime;
                 pStats['PercentOfGameDisconnected'] = totalDCTime / gameTime;
-                
+
                 pStats['KillParticipation'] = pStats.Takedowns / teamTakedowns[playerStat.team];
 
                 pStats['AverageHeroDamagePerLife'] = pStats.HeroDamage / (pStats.Deaths + 1);
@@ -384,16 +404,14 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 pStats['AverageTeamfightHealingPerLife'] = pStats.TeamfightHealingDone / (pStats.Deaths + 1);
                 pStats['AverageDamageTakenPerLife'] = pStats.DamageTaken / (pStats.Deaths + 1);
                 pStats['AverageTeamfightDamageTakenPerLife'] = pStats.TeamfightDamageTaken / (pStats.Deaths + 1);
-
-                if(this.versionMatches('<63507')){
-                    this.addStatNote(statNotes, 'DamageSoaked', 'Not available in this replay version');
-                    this.addStatNote(statNotes, 'DamageTaken', 'Only available for Warriors in this replay version');
-                    this.addStatNote(statNotes, 'AverageDamageTakenPerLife', 'Only available for Warriors in this replay version');
+                pStats['AverageDamageSoakedPerLife'] = pStats.DamageSoaked / (pStats.Deaths + 1);
+                if (this.versionMatches('<63507')) {
+                    pStats.DamageSoaked = null;
+                    pStats['AverageDamageSoakedPerLife'] = null;
                 }
                 if (this.versionMatches('<63507') && player.role !== HeroRole.WARRIOR) {
                     pStats['AverageDamageTakenPerLife'] = null;
                     pStats.DamageTaken = null;
-                    pStats.DamageSoaked = null;
                 }
 
                 pStats['KDARatio'] = pStats.Takedowns / (pStats.Deaths + 1);
@@ -412,13 +430,16 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 pStats['PercentProtection'] = pStats.ProtectionGivenToAllies / (teamProtection[playerStat.team] || 1);
                 pStats['PercentTeamfightHealing'] = pStats.TeamfightHealingDone / (teamTeamfightHealing[playerStat.team] || 1);
 
-                pStats['PercentDamageTaken'] = pStats.DamageTaken / (teamHealing[playerStat.team] || 1);
+                pStats['PercentDamageTaken'] = pStats.DamageTaken / (teamDamageTaken[playerStat.team] || 1);
+                pStats['PercentDamageSoaked'] = pStats.DamageSoaked / (teamDamageSoaked[playerStat.team] || 1);
                 pStats['PercentTeamfightDamageTaken'] = pStats.TeamfightDamageTaken / (teamTeamfightDamageTaken[playerStat.team] || 1);
+                if (this.versionMatches('<63507')) {
+                    pStats['PercentDamageSoaked'] = null;
+
+                }
                 if (this.versionMatches('<63507') && player.role !== HeroRole.WARRIOR) {
                     pStats['PercentDamageTaken'] = null;
                     pStats['PercentTeamfightDamageTaken'] = null;
-                    this.addStatNote(statNotes, 'PercentDamageTaken', 'Only available for Warriors in this replay version');
-                    this.addStatNote(statNotes, 'PercentTeamfightDamageTaken', 'Only available for Warriors in this replay version');
                 }
 
                 pStats['PercentXPContribution'] = pStats.ExperienceContribution / (pStats.MetaExperience || 1);
@@ -429,10 +450,26 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 // older replays only record damage taken for warriors // flacky fix wont be accurate as hero damage is from heroes only and damage taken is from all sources
                 if (this.versionMatches('<63507')) {
                     pStats['PercentDamageHealed'] = pStats.Healing / (teamHeroDamageAgainst[playerStat.team] || 1);
-                    this.addStatNote(statNotes, 'PercentDamageHealed', 'Inacurate');
-                    this.addStatNote(statNotes, 'PercentDamageHealed', 'Since Damage Taken is only available for warriors in this replay version the calculation uses Hero Damage done agaisnt the team, however healing includes damage healed from all sources, as such the numbers will be inflated');
-                }
+                 }
 
+            }
+
+            if (this.versionMatches('<63507')) {
+                this.addStatNote(statNotes, 'DamageSoaked', 'Not available in this replay version');
+                this.setStatSupport(result.statSupport, 'DamageSoaked', ReplayStatSupport.NONE);
+                this.addStatNote(statNotes, 'AverageDamageSoakedPerLife', 'Not available in this replay version');
+                this.setStatSupport(result.statSupport, 'AverageDamageSoakedPerLife', ReplayStatSupport.NONE);
+                this.addStatNote(statNotes, 'DamageTaken', 'Only available for Warriors in this replay version');
+                this.setStatSupport(result.statSupport, 'DamageTaken', ReplayStatSupport.PARTIAL);
+                this.addStatNote(statNotes, 'AverageDamageTakenPerLife', 'Only available for Warriors in this replay version');
+                this.setStatSupport(result.statSupport, 'AverageDamageTakenPerLife', ReplayStatSupport.PARTIAL);
+                this.addStatNote(statNotes, 'PercentDamageSoaked', 'Not available in this replay version');
+                this.setStatSupport(result.statSupport, 'PercentDamageSoaked', ReplayStatSupport.NONE);
+                this.addStatNote(statNotes, 'PercentDamageTaken', 'Only available for Warriors in this replay version');
+                this.addStatNote(statNotes, 'PercentTeamfightDamageTaken', 'Only available for Warriors in this replay version');
+                this.addStatNote(statNotes, 'PercentDamageHealed', 'Inacurate');
+                this.addStatNote(statNotes, 'PercentDamageHealed', 'Since Damage Taken is only available for warriors in this replay version the calculation uses Hero Damage done agaisnt the team, however healing includes damage healed from all sources, as such the numbers will be inflated');
+                this.setStatSupport(result.statSupport, 'PercentDamageHealed', ReplayStatSupport.FLAWED);
             }
 
             result.playerStats = playerStats;
