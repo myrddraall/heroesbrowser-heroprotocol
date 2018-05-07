@@ -10,11 +10,9 @@ import {
     IHeroData
 } from '../types';
 import { RunOnWorker, ReplayWorkerContext } from './decorators';
-import { BehaviorSubject } from 'rxjs/BehaviorSubject';
-import { Subscription } from 'rxjs/Subscription';
+import { BehaviorSubject ,  Subscription } from 'rxjs';
 import { IReplayStatusMessage } from './proxy/messages';
-import { debounceTime } from 'rxjs/operators/debounceTime';
-import { timer } from 'rxjs/Observable/timer';
+import { debounceTime } from 'rxjs/operators';
 import { IWorkerCallContext } from './proxy/context/IWorkerCallContext';
 
 function parseStrings<T>(data) {

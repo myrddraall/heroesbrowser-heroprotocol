@@ -8,9 +8,7 @@ import {
     isLoadHeroDataMessage, ILoadHeroDataResultMessage, ILoadHeroDataMessage
 } from './messages';
 import { HeroProtocol } from '../../heroprotocol';
-import { Subject } from 'rxjs/Subject';
-import { Subscription } from 'rxjs/Subscription';
-import { Observable } from 'rxjs/Observable';
+import { Subject ,  Subscription ,  Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
 export class ReplayContextCaller implements IWorkerContextHost {

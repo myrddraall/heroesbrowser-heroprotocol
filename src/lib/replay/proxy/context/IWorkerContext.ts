@@ -1,5 +1,5 @@
 import { IWorkerContextHost } from './IWorkerContextHost';
-import { Observable } from 'rxjs/Observable';
+import { Observable } from 'rxjs';
 
 export interface IWorkerContext {
     readonly workerMessages: Observable<any>;

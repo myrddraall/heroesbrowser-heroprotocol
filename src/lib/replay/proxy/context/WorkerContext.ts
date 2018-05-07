@@ -8,8 +8,7 @@ import {
 } from '../messages';
 import { WorkerContextRegistry } from './WorkerContextRegistry';
 
-import { Subject } from 'rxjs/Subject';
-import { Observable } from 'rxjs/Observable';
+import { Subject ,  Observable } from 'rxjs';
 
 import * as sha1 from 'sha1';
 

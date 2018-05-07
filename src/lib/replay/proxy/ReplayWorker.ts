@@ -15,9 +15,7 @@ import {
 } from './messages';
 import { WorkerContextRegistry } from './context/WorkerContextRegistry';
 import 'reflect-metadata';
-import { debounceTime } from 'rxjs/operators/debounceTime';
-import { timer } from 'rxjs/Observable/timer';
-import 'rxjs/operators/debounce';
+import { debounceTime } from 'rxjs/operators';
 
 import { Replay } from '../Replay';
 export class ReplayWorker {
