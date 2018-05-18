@@ -8,6 +8,7 @@ import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
 import { RequiredReplayVersion } from '../decorators';
 import { ReplayVersionOutOfRangeError } from "../../errors";
 import { HeroRole } from '../types';
+import { UnitAnalyser } from './UnitAnalyser';
 
 
 export interface ISimplePlayerScoreStats {
@@ -113,15 +114,21 @@ export interface IScoreScreenData {
 @ReplayAnalyserContext('0B9EBC25-CB1F-47CC-B287-D806D58E2C55')
 export class ScoreAnalyser extends AbstractReplayAnalyser {
     private basicReplayAnalyser: BasicReplayAnalyser;
-
+    private unitAnalyser: UnitAnalyser;
     public constructor(replay: Replay) {
         super(replay);
     }
 
     public async initialize(): Promise<void> {
+
         await super.initialize();
         this.basicReplayAnalyser = new BasicReplayAnalyser(this.replay);
-        await this.basicReplayAnalyser.initialize();
+        this.unitAnalyser = new UnitAnalyser(this.replay);
+
+        await Promise.all([
+            this.basicReplayAnalyser.initialize(),
+            this.unitAnalyser.initialize()
+        ]);
     }
 
     @RunOnWorker()
@@ -363,6 +370,8 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 playerStatsQ.where(_ => _.team === 0).sum(_ => _.stats.HeroDamage),
             ];
 
+            // const unitDeathQ = await this.unitAnalyser.unitDeathsQueriable;
+
             for (let i = 0; i < playerStats.length; i++) {
                 const playerStat = playerStats[i];
                 const player = players[i];
@@ -371,6 +380,17 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 pStats['Disconnects'] = playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserLeaveEvent(_));
                 pStats['Reconnects'] = playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserJoinEvent(_));
 
+
+                pStats['MinionsKilled'] = await this.unitAnalyser.getMinionsKilledCountByPlayer(player.index);
+                pStats['Kills'] = pStats.SoloKill;
+                pStats['SoloKill'] = await this.unitAnalyser.getPlayerSoloKills(player.index, true);
+ /* 
+                pStats['DeathsToNPCs'] = unitDeathQ
+                    .where(_ => _.spawnPlayerId === player.index && _.killingPlayerId > 9 && _.isHero && !_.isSelfKill).count();
+                
+                pStats['DeathsToNPCsSolo'] = unitDeathQ
+                    .where(_ => _.spawnPlayerId === player.index && _.killingPlayerId > 9 && _.isHero && !_.isSelfKill && _.isSoloKill).count();
+*/
                 const dcs = playerDCQuery.where(_ => _._userid.m_userId === player.userId).toArray();
                 let lastDCTime = -1;
                 let totalDCTime = 0;
@@ -450,7 +470,7 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 // older replays only record damage taken for warriors // flacky fix wont be accurate as hero damage is from heroes only and damage taken is from all sources
                 if (this.versionMatches('<63507')) {
                     pStats['PercentDamageHealed'] = pStats.Healing / (teamHeroDamageAgainst[playerStat.team] || 1);
-                 }
+                }
 
             }
 

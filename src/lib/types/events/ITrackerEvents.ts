@@ -115,3 +115,22 @@ export function getSStatValue<T>(from: ISStatGameEventData<T>[], key: string, as
     }
     return undefined;
 }
+
+export function getSStatValueArray<T>(from: ISStatGameEventData<T>[], key: string, asFloat: boolean = false): T[] {
+    if (from) {
+        const r = linq.from(from).where(_ => _.m_key === key).toArray();
+        const result = [];
+        if (r) {
+            for (let i = 0; i < r.length; i++) {
+                const item = r[i];
+                if(asFloat && typeof item.m_value === 'number'){
+                    result.push(<T><any>(item.m_value / 4096));
+                }else{
+                    result.push(item.m_value);
+                }
+            }
+            return result;
+        }
+    }
+    return [];
+}

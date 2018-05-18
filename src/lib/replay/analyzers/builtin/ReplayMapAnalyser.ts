@@ -18,13 +18,14 @@ import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
 import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
 // tslint:disable:no-bitwise
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
+import { IUnitSpawn, IUnitLife } from '.';
 
 export interface IMapDescriptor {
     name: string;
     build: number;
     size: IPoint;
 }
-
+/*
 export interface IUnitSpawn {
     id: number;
     type: string;
@@ -45,7 +46,7 @@ export interface IUnitLife extends IUnitSpawn {
     deathY: number;
     deathTime: number;
 }
-
+*/
 export interface IMapPOI extends IPoint {
     type: string;
     team: number;
