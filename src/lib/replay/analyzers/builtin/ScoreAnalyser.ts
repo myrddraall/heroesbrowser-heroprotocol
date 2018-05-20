@@ -1,7 +1,7 @@
 
 import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
 import { Replay } from '../../Replay';
-import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent, isSGameUserLeaveEvent, isSGameUserJoinEvent, UserLeaveReason, ISGameUserLeaveEvent, ISGameUserJoinEvent } from '../../../types';
+import { IReplayTrackerEvent, isSScoreResultEvent, ISScoreResultEvent, isSGameUserLeaveEvent, isSGameUserJoinEvent, UserLeaveReason, ISGameUserLeaveEvent, ISGameUserJoinEvent, ISStatGameEvent, isSStatGameEvent, getSStatValue } from '../../../types';
 import * as linq from 'linq';
 import { BasicReplayAnalyser } from './BasicReplayAnalyser'
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
@@ -48,6 +48,7 @@ export interface IPlayerScoreStats {
     "ProtectionGivenToAllies": number;
     "TimeSilencingEnemyHeroes": number;
     "TimeRootingEnemyHeroes": number;
+    "TimeStunningEnemyHeroes": number;
     "ClutchHealsPerformed": number;
     "EscapesPerformed": number;
     "VengeancesPerformed": number;
@@ -259,7 +260,7 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
             const stats = <ISScoreResultEvent><any>trackerQueriable.where(_ => isSScoreResultEvent(_)).last();
             const tickRate = await this.tickRate;
             const gameTime = stats._gameloop / tickRate;
-
+            const voteQ = linq.from<ISStatGameEvent>(<any>trackerQueriable.where(_ => isSStatGameEvent(_) && _.m_eventName === 'EndOfGameUpVotesCollected').toArray());
             const playerDCQuery = linq.from<ISGameUserLeaveEvent | ISGameUserJoinEvent>(<any[]>gameEventQueriable
                 .where(_ => (isSGameUserLeaveEvent(_) && _.m_leaveReason !== UserLeaveReason.END_OF_GAME) || isSGameUserJoinEvent(_))
                 .toArray());
@@ -370,8 +371,6 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 playerStatsQ.where(_ => _.team === 0).sum(_ => _.stats.HeroDamage),
             ];
 
-            // const unitDeathQ = await this.unitAnalyser.unitDeathsQueriable;
-
             for (let i = 0; i < playerStats.length; i++) {
                 const playerStat = playerStats[i];
                 const player = players[i];
@@ -379,18 +378,17 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
 
                 pStats['Disconnects'] = playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserLeaveEvent(_));
                 pStats['Reconnects'] = playerDCQuery.count(_ => _._userid.m_userId === player.userId && isSGameUserJoinEvent(_));
-
+                pStats['VotesReceived'] = voteQ.where(_ => getSStatValue(_.m_intData, 'Player') ===  player.index + 1).count();
+                
 
                 pStats['MinionsKilled'] = await this.unitAnalyser.getMinionsKilledCountByPlayer(player.index);
                 pStats['Kills'] = pStats.SoloKill;
                 pStats['SoloKill'] = await this.unitAnalyser.getPlayerSoloKills(player.index, true);
- /* 
-                pStats['DeathsToNPCs'] = unitDeathQ
-                    .where(_ => _.spawnPlayerId === player.index && _.killingPlayerId > 9 && _.isHero && !_.isSelfKill).count();
-                
-                pStats['DeathsToNPCsSolo'] = unitDeathQ
-                    .where(_ => _.spawnPlayerId === player.index && _.killingPlayerId > 9 && _.isHero && !_.isSelfKill && _.isSoloKill).count();
-*/
+                pStats['DeathsToNPCs'] = await this.unitAnalyser.getPlayerDeathsToMinions(player.index);
+
+
+                pStats.TimeCCdEnemyHeroes += pStats.TimeSilencingEnemyHeroes;
+                pStats['TimeSlowedEnemyHeroes'] = pStats.TimeCCdEnemyHeroes - pStats.TimeSilencingEnemyHeroes - pStats.TimeRootingEnemyHeroes - pStats.TimeStunningEnemyHeroes
                 const dcs = playerDCQuery.where(_ => _._userid.m_userId === player.userId).toArray();
                 let lastDCTime = -1;
                 let totalDCTime = 0;

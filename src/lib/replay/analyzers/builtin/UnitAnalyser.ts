@@ -49,7 +49,7 @@ export interface IUnitLife extends IUnitSpawn {
 }
 
 
-interface IUnitLifeSpan {
+export interface IUnitLifeSpan {
     id: number;
     spawn: ISUnitBornEvent;
     death?: ISUnitDiedEvent;
@@ -367,6 +367,7 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
     public async getMinionsKilledCountByPlayer(playerIndex: number) {
         return (await this.getMinionsKilledByPlayerQuery(playerIndex)).count();
     }
+
     @RunOnWorker()
     public async getPlayerSoloKills(playerIndex: number, ignoreNPCs = false): Promise<number> {
         const q = await this.trackerEventsQueriable;
@@ -393,28 +394,28 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
             }
         ).count();
         return soloCount;
-        /*const protocol = await this.replay.protocol;
-        const assistEvents = await this.playerDeathAssistsById;
-        const lives = linq.from(await this.playerLifeSpan);
+    }
 
-        return lives.where(_ => {
-            let match = _.death && _.death.m_killerPlayerId === playerIndex + 1;
-            if(match){
-                const id = protocol.unitTag(_.spawn.m_unitTagIndex, _.spawn.m_unitTagRecycle);
-                const assistEvent = assistEvents[id];
-                console.log(_.death.m_killerPlayerId, assistEvent.m_intData);
-                if(!assistEvent){
-                    match = false;
-                }else{
-                    var assistPlayers = getSStatValueArray(assistEvent.m_intData, 'KillingPlayer');
-                    
-                    if(assistPlayers.length > 1){
-                        match = false;
+    @RunOnWorker()
+    public async getPlayerDeathsToMinions(playerIndex: number): Promise<number> {
+        const q = await this.trackerEventsQueriable;
+        const soloCount = q.where(
+            _ => {
+                if (isSStatGameEvent(_) && _.m_eventName === 'PlayerDeath') {
+                    const player = getSStatValue(_.m_intData, 'PlayerID');
+                    if(player !== playerIndex + 1){
+                        return false;
                     }
+                    const assists = getSStatValueArray(_.m_intData, 'KillingPlayer');
+                    if(assists.length === 1 && assists[0] > 10){
+                        return true;
+                    }
+                    
                 }
+                return false;
             }
-            return match;
-        }).count(); */
+        ).count();
+        return soloCount;
     }
 
 }
