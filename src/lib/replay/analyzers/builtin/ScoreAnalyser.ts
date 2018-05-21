@@ -8,7 +8,7 @@ import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
 import { RequiredReplayVersion } from '../decorators';
 import { ReplayVersionOutOfRangeError } from "../../errors";
 import { HeroRole } from '../types';
-import { UnitAnalyser } from './UnitAnalyser';
+import { UnitAnalyser, MercTypes, MercMode } from './UnitAnalyser';
 
 
 export interface ISimplePlayerScoreStats {
@@ -382,6 +382,11 @@ export class ScoreAnalyser extends AbstractReplayAnalyser {
                 
 
                 pStats['MinionsKilled'] = await this.unitAnalyser.getMinionsKilledCountByPlayer(player.index);
+                pStats['MercsKilledCamp'] = await this.unitAnalyser.getMercsKilledCountByPlayer(player.index, MercTypes.MINOR, MercMode.CAMP);
+                pStats['MercsKilledLane'] = await this.unitAnalyser.getMercsKilledCountByPlayer(player.index, MercTypes.MINOR, MercMode.LANE);
+                pStats['BossKilledCamp'] = await this.unitAnalyser.getMercsKilledCountByPlayer(player.index, MercTypes.BOSS, MercMode.CAMP);
+                pStats['BossKilledLane'] = await this.unitAnalyser.getMercsKilledCountByPlayer(player.index, MercTypes.BOSS, MercMode.LANE);
+                pStats['RegenGlobesColleced'] = await this.unitAnalyser.getPlayerRegenGlobesCollected(player.index);
                 pStats['Kills'] = pStats.SoloKill;
                 pStats['SoloKill'] = await this.unitAnalyser.getPlayerSoloKills(player.index, true);
                 pStats['DeathsToNPCs'] = await this.unitAnalyser.getPlayerDeathsToMinions(player.index);

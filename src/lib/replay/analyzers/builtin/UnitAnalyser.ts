@@ -55,6 +55,22 @@ export interface IUnitLifeSpan {
     death?: ISUnitDiedEvent;
 }
 
+export enum MercTypes {
+    SIEGE = 1,
+    BRUISER = 2,
+    SAPPER = 4,
+    ITEM = 8,
+    BOSS = 16,
+    MINOR = SIEGE | BRUISER | SAPPER | ITEM,
+    ALL = MINOR | BOSS
+}
+
+export enum MercMode {
+    CAMP = 1,
+    LANE = 2,
+    BOTH = CAMP | LANE
+}
+
 @ReplayAnalyserContext('BB8A798F-C4BC-4806-B138-4E2512E4518A')
 export class UnitAnalyser extends AbstractReplayAnalyser {
     private playerAnalyser: PlayerAnalyser;
@@ -347,16 +363,97 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
     }
 
 
-    protected async getMinionsKilledByPlayerQuery(playerIndex: number) {
+    protected async getUnitsKilledByPlayerQuery(playerIndex: number, unitTypes: string[]) {
         const lsQ = linq.from(await this.unitLifeSpan);
         return lsQ.where(_ =>
-            (_.spawn.m_unitTypeName === 'RangedMinion' ||
-                _.spawn.m_unitTypeName === 'FootmanMinion' ||
-                _.spawn.m_unitTypeName === 'WizardMinion') &&
+            unitTypes.indexOf(_.spawn.m_unitTypeName) !== -1 &&
             _.death &&
             _.death.m_killerPlayerId === playerIndex + 1
         );
     }
+
+    protected getMinionsKilledByPlayerQuery(playerIndex: number) {
+        return this.getUnitsKilledByPlayerQuery(playerIndex, ['RangedMinion', 'FootmanMinion', 'WizardMinion', 'CatapultMinion']);
+    }
+
+    protected getMercFilter(mercType: MercTypes, mercMode: MercMode): string[] {
+        let filter: string[] = [];
+        if ((mercType & MercTypes.SIEGE) === MercTypes.SIEGE) {
+            if ((mercMode & MercMode.CAMP) === MercMode.CAMP) {
+                filter = [...filter,
+                    'MercDefenderSiegeGiant',
+                    'TerranHellbatDefender',
+                    'MercSiegeTrooperDefender'
+                ];
+            }
+            if ((mercMode & MercMode.LANE) === MercMode.LANE) {
+                filter = [...filter,
+                    'MercLanerSiegeGiant',
+                    'TerranHellbat',
+                    'MercSiegeTrooperLaner'
+                ];
+            }
+        }
+        if ((mercType & MercTypes.BRUISER) === MercTypes.BRUISER) {
+            if ((mercMode & MercMode.CAMP) === MercMode.CAMP) {
+                filter = [...filter,
+                    'MercDefenderMeleeKnight', 'MercDefenderRangedMage',
+                    'TerranGoliathDefender', 'TerranRavenDefender',
+                    'MercSummonerDefenderMinion', 'MercSummonerDefender',
+                ];
+            }
+            if ((mercMode & MercMode.LANE) === MercMode.LANE) {
+                filter = [...filter,
+                    'MercLanerMeleeKnight', 'MercLanerRangedMage',
+                    'TerranGoliath', 'TerranRaven',
+                    'MercSummonerLanerMinion', 'MercSummonerLaner',
+                ];
+            }
+        }
+
+        if ((mercType & MercTypes.SAPPER) === MercTypes.SAPPER) {
+            if ((mercMode & MercMode.CAMP) === MercMode.CAMP) {
+                filter = [...filter,
+                    'MercGoblinSapperDefender'
+                ];
+            }
+            if ((mercMode & MercMode.LANE) === MercMode.LANE) {
+                filter = [...filter,
+                    'MercGoblinSapperLaner',
+                ];
+            }
+        }
+
+        if ((mercType & MercTypes.ITEM) === MercTypes.ITEM) {
+            if ((mercMode & MercMode.CAMP) === MercMode.CAMP) {
+                filter = [...filter,
+                    'OverwatchTurret', 'OverwatchMechanic', 'MercDefenderMeleeIndividual'
+                ];
+            }
+        }
+
+        if ((mercType & MercTypes.BOSS) === MercTypes.BOSS) {
+            if ((mercMode & MercMode.CAMP) === MercMode.CAMP) {
+                filter = [...filter,
+                    'JungleGraveGolemDefender',
+                    'SlimeBossDefender'
+                ];
+            }
+            if ((mercMode & MercMode.LANE) === MercMode.LANE) {
+                filter = [...filter,
+                    'JungleGraveGolemLaner',
+                    'SlimeBossLaner',
+                ];
+            }
+        }
+        return filter;
+    }
+
+    protected getMercsKilledByPlayerQuery(playerIndex: number, mercType: MercTypes = MercTypes.ALL, mercMode: MercMode = MercMode.BOTH) {
+        return this.getUnitsKilledByPlayerQuery(playerIndex, this.getMercFilter(mercType, mercMode));
+    }
+
+
     @RunOnWorker()
     public async getMinionsKilledByPlayer(playerIndex: number) {
         const killedByPlayerQuery = await this.getMinionsKilledByPlayerQuery(playerIndex);
@@ -369,23 +466,33 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
     }
 
     @RunOnWorker()
+    public async getMercsKilledCountByPlayer(playerIndex: number, mercType: MercTypes = MercTypes.ALL, mercMode: MercMode = MercMode.BOTH) {
+        return (await this.getMercsKilledByPlayerQuery(playerIndex, mercType, mercMode)).count();
+    }
+
+    public async getPlayerRegenGlobesCollected(playerIndex: number): Promise<number> {
+        const q = await this.trackerEventsQueriable;
+        return q.where(_ => isSStatGameEvent(_) && _.m_eventName === 'RegenGlobePickedUp' && getSStatValue(_.m_intData, 'PlayerID') === playerIndex + 1)
+            .count();
+    }
+    @RunOnWorker()
     public async getPlayerSoloKills(playerIndex: number, ignoreNPCs = false): Promise<number> {
         const q = await this.trackerEventsQueriable;
         const soloCount = q.where(
             _ => {
                 if (isSStatGameEvent(_) && _.m_eventName === 'PlayerDeath') {
                     const assists = getSStatValueArray(_.m_intData, 'KillingPlayer');
-                    if(assists.length === 1 && assists[0] === playerIndex + 1){
+                    if (assists.length === 1 && assists[0] === playerIndex + 1) {
                         return true;
                     }
-                    if(ignoreNPCs){
+                    if (ignoreNPCs) {
                         const idx = assists.findIndex(assister => {
-                            if(assister < 11 && assister !== playerIndex + 1){
+                            if (assister < 11 && assister !== playerIndex + 1) {
                                 return true;
                             }
                             return false;
                         });
-                        if(idx === -1 && assists.indexOf(playerIndex + 1) !== -1){
+                        if (idx === -1 && assists.indexOf(playerIndex + 1) !== -1) {
                             return true;
                         }
                     }
@@ -403,14 +510,14 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
             _ => {
                 if (isSStatGameEvent(_) && _.m_eventName === 'PlayerDeath') {
                     const player = getSStatValue(_.m_intData, 'PlayerID');
-                    if(player !== playerIndex + 1){
+                    if (player !== playerIndex + 1) {
                         return false;
                     }
                     const assists = getSStatValueArray(_.m_intData, 'KillingPlayer');
-                    if(assists.length === 1 && assists[0] > 10){
+                    if (assists.length === 1 && assists[0] > 10) {
                         return true;
                     }
-                    
+
                 }
                 return false;
             }
