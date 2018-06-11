@@ -86,7 +86,10 @@ export class XPAnalyser extends AbstractReplayAnalyser {
                 .select(_ => _.l)
                 .toArray();
 
-            const coreDeath = trackableQ.where(_ => isSUnitBornEvent(_) && _.m_unitTypeName === 'KingsCore')
+            const coreDeath = trackableQ.where(
+                    _ => isSUnitBornEvent(_) && 
+                    (_.m_unitTypeName === 'KingsCore' ||  _.m_unitTypeName === 'VanndarStormpike' || _.m_unitTypeName === 'DrekThar')
+                )
                 .join(
                     trackableQ.where(_ => isSUnitDiedEvent(_)),
                     (b: ISUnitBornEvent) => protocol.unitTag(b.m_unitTagIndex, b.m_unitTagRecycle),

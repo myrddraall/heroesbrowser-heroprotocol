@@ -50,15 +50,15 @@ export class TalentAnalyser extends AbstractReplayAnalyser {
                     talents: event.select((_: ISStatGameEvent): ITalentPick => {
                         const player = playerList[key];
                         const talentName = getSStatValue(_.m_stringData, 'PurchaseName');
-                        const hero = heroData.first(_ => _.name === player.hero);
+                        const hero = heroData.firstOrDefault(_ => _.name === player.hero);
                         if(!hero || !hero.talents || !hero.talents.length){
                             return <any>{
                                 name: talentName,
                                 time: _._gameloop / tickRate
                             }
-                        }
+                        }else{}
                         const talentQ = linq.from(hero.talents);
-                        return Object.assign({}, talentQ.first(_ => _.name === talentName), {time: _._gameloop / tickRate});
+                        return Object.assign({}, talentQ.firstOrDefault(_ => _.name.toUpperCase() === talentName.toUpperCase()), {name: talentName, time: _._gameloop / tickRate});
                     }).toArray()
                 }));
 

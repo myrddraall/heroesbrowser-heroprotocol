@@ -27,9 +27,24 @@ export interface ISUnitDiedEvent extends IReplayTrackerEvent {
     readonly m_y: number;
 }
 
+
 export function isSUnitDiedEvent(obj: any): obj is ISUnitDiedEvent {
     return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SUnitDiedEvent';
 }
+
+export interface ISUnitRevivedEvent extends IReplayTrackerEvent {
+    readonly _event: 'NNet.Replay.Tracker.SUnitRevivedEvent';
+    readonly m_controlPlayerId: number;
+    readonly m_unitTagIndex: number;
+    readonly m_unitTagRecycle: number;
+    readonly m_x: number;
+    readonly m_y: number;
+}
+
+export function isSUnitRevivedEvent(obj: any): obj is ISUnitRevivedEvent {
+    return isIReplayTrackerEvent(obj) && obj._event === 'NNet.Replay.Tracker.SUnitRevivedEvent';
+}
+
 
 export interface IKeyValueArray<T> {
     readonly m_name: string;

@@ -18,7 +18,8 @@ import { ReplayAnalyserContext, RunOnWorker } from '../../decorators';
 import { PlayerAnalyser, IPlayerSlot } from './PlayerAnalyser';
 // tslint:disable:no-bitwise
 import { AbstractReplayAnalyser } from '../AbstractReplayAnalyser';
-import { IUnitSpawn, IUnitLife } from '.';
+import { IUnitSpawn, IUnitLife } from './UnitAnalyser';
+import { UnitTypeGroups } from '../types';
 
 export interface IMapDescriptor {
     name: string;
@@ -294,7 +295,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
             }
         }
 
-        if(filter.isOnTeam !== undefined){
+        if (filter.isOnTeam !== undefined) {
             if (!Array.isArray(filter.isOnTeam)) {
                 filter.isOnTeam = [filter.isOnTeam];
             }
@@ -303,7 +304,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
             }
         }
 
-        if(filter.isOwnedByPlayers === true && unit.spawnPlayerId > 9){
+        if (filter.isOwnedByPlayers === true && unit.spawnPlayerId > 9) {
             return false;
         }
 
@@ -396,7 +397,7 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
         const trackerQ = await this.trackerEventsQueriable;
 
         let cores = trackerQ
-            .where(e => isSUnitBornEvent(e) && e.m_unitTypeName === 'KingsCore')
+            .where(e => isSUnitBornEvent(e) && UnitTypeGroups.CORE.matches(e.m_unitTypeName))
             .select((_: ISUnitBornEvent): IMapPOI => ({
                 x: _.m_x,
                 y: _.m_y,
@@ -458,6 +459,8 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
     private async getMapSpecificPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
         const mapName = await this.mapName;
         switch (mapName) {
+            case 'Alterac Pass':
+                return await this.getAlteracPassPOIs();
             case 'Battlefield of Eternity':
                 return await this.getBattlefiledOfEternityPOIs();
             case 'Blackheart\'s Bay':
@@ -468,6 +471,22 @@ export class ReplayMapAnalyser extends AbstractReplayAnalyser {
                 return await this.getHauntedMinesPOIs();
         }
         return [];
+    }
+
+    private async getAlteracPassPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {
+        const result: linq.IEnumerable<IMapPOI>[] = [];
+        const trackerQ = await this.trackerEventsQueriable;
+        let immortals = trackerQ
+            .where(e => isSUnitBornEvent(e) && (e.m_unitTypeName === 'Storm_Building_WCAV_Horde_CaptureCage' || e.m_unitTypeName === 'Storm_Building_WCAV_Alliance_CaptureCage'))
+            .distinct((_: ISUnitBornEvent) => _.m_x * 1000 + _.m_y)
+            .select((_: ISUnitBornEvent): IMapPOI => ({
+                x: _.m_x,
+                y: _.m_y,
+                team: 3,
+                type: 'AP_Prison'
+            }));
+        result.push(immortals);
+        return result;
     }
 
     private async getBattlefiledOfEternityPOIs(): Promise<linq.IEnumerable<IMapPOI>[]> {

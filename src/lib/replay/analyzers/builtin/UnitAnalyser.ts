@@ -155,7 +155,8 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
         return UnitAnalyser._unitTypesPromise;
     }
 
-    private get unitTypeById(): Promise<{ [id: number]: string }> {
+    @WorkerOnly()
+    public get unitTypeById(): Promise<{ [id: number]: string }> {
         if (!UnitAnalyser._unitTypesPromise) {
             this.buildUnitTypes();
         }
@@ -207,8 +208,8 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
             return UnitAnalyser._playerSpawn;
         })();
     }
-
-    private get playerSpawnById(): Promise<{ [id: number]: ISUnitBornEvent }> {
+    @WorkerOnly()
+    public get playerSpawnById(): Promise<{ [id: number]: ISUnitBornEvent }> {
         return (async () => {
             UnitAnalyser._unitSpawnPromise ? await UnitAnalyser._unitSpawnPromise : await this.buildUnitSpawns();
             return UnitAnalyser._playerSpawnById;
@@ -525,4 +526,5 @@ export class UnitAnalyser extends AbstractReplayAnalyser {
         return soloCount;
     }
 
+    
 }

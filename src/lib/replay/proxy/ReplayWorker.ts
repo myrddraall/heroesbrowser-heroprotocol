@@ -135,6 +135,7 @@ export class ReplayWorker {
     private async handleWorkerMethodCall(callId: number, call: IWorkerMethodCall) {
         const context = await this.getContextInstance(call.context);
         const fn: Function = context[this.getPropertyName(context, call.methodId)];
+        console.log('handleWorkerMethodCall', call, this.getPropertyName(context, call.methodId));
         const value = await fn.apply(context, call.args || []);
         const result: IWorkerCallResultMessage = {
             type: 'worker-call-result',

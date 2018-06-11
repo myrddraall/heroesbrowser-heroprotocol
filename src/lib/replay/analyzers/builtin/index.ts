@@ -7,3 +7,4 @@ export * from './ChatAnalyser';
 export * from './XPAnalyser';
 export * from './TalentAnalyser';
 export * from './UnitAnalyser';
+export * from './TimelineAnalyser';
